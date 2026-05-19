@@ -2,6 +2,8 @@ export { EventLog } from './eventLog.js';
 export { BlockStore } from './blockStore.js';
 export { createLog } from './log.js';
 export type { Log } from './log.js';
+export * from './eventEnvelope.js';
+export * from './types.js';
 
 export {
   serializeEvent,
