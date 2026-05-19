@@ -23,8 +23,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "nearbytes-crypto": "file:../nearbytes-crypto",
-    "nearbytes-storage": "file:../nearbytes-storage"
+    "nearbytes-crypto": "nearbytes/nearbytes-crypto#main",
+    "nearbytes-storage": "nearbytes/nearbytes-storage#main"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
