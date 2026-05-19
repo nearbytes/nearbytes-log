@@ -32,10 +32,10 @@ __metadata:
 
 "nearbytes-crypto@nearbytes/nearbytes-crypto#main":
   version: 0.1.0
-  resolution: "nearbytes-crypto@https://github.com/nearbytes/nearbytes-crypto.git#commit=e949528993ab5a47bcd9edd4940089e61a58717b"
+  resolution: "nearbytes-crypto@https://github.com/nearbytes/nearbytes-crypto.git#commit=a95dcf96ee257cee855d0a8ed1d694dab070fc9d"
   dependencies:
     "@noble/curves": "npm:^1.9.7"
-  checksum: 10c0/b99e5c7b7762169fdd683cc9af7053886021c640a123f901a405b067474d970e9ee9e2e4b0a16762743fb4f90194df29e08dbcc10690f3aeea8bf51566f826c0
+  checksum: 10c0/4e30de4f8f48648aa5ffcbc05e76e2b986357655495eebb0b3d9b3382a0e026b6126aca8c2ca8dbbe52611f4a7f618176fba699aa021e88267766a0ef7fdc052
   languageName: node
   linkType: hard
 
@@ -52,10 +52,10 @@ __metadata:
 
 "nearbytes-storage@nearbytes/nearbytes-storage#main":
   version: 0.1.0
-  resolution: "nearbytes-storage@https://github.com/nearbytes/nearbytes-storage.git#commit=d58981111205f6bd4f9670383a0ef24556a8655e"
+  resolution: "nearbytes-storage@https://github.com/nearbytes/nearbytes-storage.git#commit=9faed1d1174f0d79f3dbc5e1735f814418bacebd"
   dependencies:
     nearbytes-crypto: "nearbytes/nearbytes-crypto#main"
-  checksum: 10c0/91253262c7fe7f7ee77491c67dcdf4aa59f228cf59fc2de2f9d6ea41d05a0039752ede9de7324b2744d964bc800a387e8819ea507580a7530cde3ba8d9137852
+  checksum: 10c0/86b5ea656ac02f6e1799cee0d9207eeddac4c2a5d9b9e1f5bb14acdf28c89471910651b59622465f8e0145f1a125af45ed37c4941a6ed41586d59c1d8b227367
   languageName: node
   linkType: hard
 
