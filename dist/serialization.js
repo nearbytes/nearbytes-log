@@ -66,37 +66,70 @@ export function deserializeInnerEventPayload(data) {
     return deserializeInnerEventPayloadJson(parsed);
 }
 export function serializeInnerEventPayloadJson(payload) {
-    const result = {
-        type: payload.type,
-        fileName: payload.fileName,
-        hash: payload.hash,
-        encryptedKey: bytesToBase64(payload.encryptedKey),
-    };
-    if (payload.toFileName !== undefined)
-        result.toFileName = payload.toFileName;
-    if (payload.contentType !== undefined)
-        result.contentType = payload.contentType;
-    if (payload.size !== undefined)
-        result.size = payload.size;
-    if (payload.mimeType !== undefined)
-        result.mimeType = payload.mimeType;
-    if (payload.createdAt !== undefined)
-        result.createdAt = payload.createdAt;
-    if (payload.deletedAt !== undefined)
-        result.deletedAt = payload.deletedAt;
-    if (payload.renamedAt !== undefined)
-        result.renamedAt = payload.renamedAt;
-    if (payload.authorPublicKey !== undefined)
-        result.authorPublicKey = payload.authorPublicKey;
-    if (payload.protocol !== undefined)
-        result.protocol = payload.protocol;
-    if (payload.record !== undefined)
-        result.record = payload.record;
-    if (payload.message !== undefined)
-        result.message = payload.message;
-    if (payload.publishedAt !== undefined)
-        result.publishedAt = payload.publishedAt;
-    return result;
+    switch (payload.type) {
+        case EventType.CREATE_FILE: {
+            const p = payload;
+            const result = {
+                type: p.type,
+                filename: p.filename,
+                content: p.content,
+                wrappedKey: bytesToBase64(p.wrappedKey),
+                createdAt: p.createdAt,
+            };
+            if (p.mimeType !== undefined)
+                result.mimeType = p.mimeType;
+            return result;
+        }
+        case EventType.DELETE_FILE: {
+            const p = payload;
+            return {
+                type: p.type,
+                filename: p.filename,
+                deletedAt: p.deletedAt,
+            };
+        }
+        case EventType.RENAME_FILE: {
+            const p = payload;
+            return {
+                type: p.type,
+                filename: p.filename,
+                toFilename: p.toFilename,
+                renamedAt: p.renamedAt,
+            };
+        }
+        case EventType.DECLARE_IDENTITY: {
+            const p = payload;
+            const result = { type: p.type };
+            if (p.record !== undefined)
+                result.record = p.record;
+            if (p.authorPublicKey !== undefined)
+                result.authorPublicKey = p.authorPublicKey;
+            if (p.publishedAt !== undefined)
+                result.publishedAt = p.publishedAt;
+            return result;
+        }
+        case EventType.CHAT_MESSAGE: {
+            const p = payload;
+            const result = { type: p.type };
+            if (p.message !== undefined)
+                result.message = p.message;
+            if (p.authorPublicKey !== undefined)
+                result.authorPublicKey = p.authorPublicKey;
+            if (p.publishedAt !== undefined)
+                result.publishedAt = p.publishedAt;
+            return result;
+        }
+        case EventType.APP_RECORD: {
+            const p = payload;
+            return {
+                type: p.type,
+                protocol: p.protocol,
+                record: p.record,
+                authorPublicKey: p.authorPublicKey,
+                publishedAt: p.publishedAt,
+            };
+        }
+    }
 }
 // Transitional alias while callers move from cleartext payload signing to envelope signing.
 export const serializeEventPayload = serializeInnerEventPayload;
@@ -108,60 +141,118 @@ export function deserializeInnerEventPayloadJson(data) {
     if (!Object.values(EventType).includes(payload.type)) {
         throw new Error(`Invalid event type: ${String(payload.type)}`);
     }
-    if (typeof payload.fileName !== 'string') {
-        throw new Error('Invalid fileName');
+    const type = payload.type;
+    switch (type) {
+        case EventType.CREATE_FILE: {
+            if (typeof payload.filename !== 'string')
+                throw new Error('CREATE_FILE: invalid filename');
+            if (typeof payload.wrappedKey !== 'string')
+                throw new Error('CREATE_FILE: invalid wrappedKey');
+            if (typeof payload.createdAt !== 'number')
+                throw new Error('CREATE_FILE: invalid createdAt');
+            assertFiniteUint(payload.createdAt, 'createdAt');
+            const content = parseContentDescriptor(payload.content);
+            const result = {
+                type: EventType.CREATE_FILE,
+                filename: payload.filename,
+                content,
+                wrappedKey: createEncryptedData(base64ToBytes(payload.wrappedKey)),
+                createdAt: payload.createdAt,
+            };
+            if (payload.mimeType !== undefined) {
+                if (typeof payload.mimeType !== 'string')
+                    throw new Error('CREATE_FILE: invalid mimeType');
+                return { ...result, mimeType: payload.mimeType };
+            }
+            return result;
+        }
+        case EventType.DELETE_FILE: {
+            if (typeof payload.filename !== 'string')
+                throw new Error('DELETE_FILE: invalid filename');
+            if (typeof payload.deletedAt !== 'number')
+                throw new Error('DELETE_FILE: invalid deletedAt');
+            assertFiniteUint(payload.deletedAt, 'deletedAt');
+            return {
+                type: EventType.DELETE_FILE,
+                filename: payload.filename,
+                deletedAt: payload.deletedAt,
+            };
+        }
+        case EventType.RENAME_FILE: {
+            if (typeof payload.filename !== 'string')
+                throw new Error('RENAME_FILE: invalid filename');
+            if (typeof payload.toFilename !== 'string')
+                throw new Error('RENAME_FILE: invalid toFilename');
+            if (typeof payload.renamedAt !== 'number')
+                throw new Error('RENAME_FILE: invalid renamedAt');
+            assertFiniteUint(payload.renamedAt, 'renamedAt');
+            return {
+                type: EventType.RENAME_FILE,
+                filename: payload.filename,
+                toFilename: payload.toFilename,
+                renamedAt: payload.renamedAt,
+            };
+        }
+        case EventType.DECLARE_IDENTITY: {
+            const result = { type: EventType.DECLARE_IDENTITY };
+            if (payload.record !== undefined) {
+                if (typeof payload.record !== 'string')
+                    throw new Error('DECLARE_IDENTITY: invalid record');
+                return { ...result, record: payload.record,
+                    authorPublicKey: typeof payload.authorPublicKey === 'string' ? payload.authorPublicKey : undefined,
+                    publishedAt: typeof payload.publishedAt === 'number' ? payload.publishedAt : undefined,
+                };
+            }
+            return {
+                ...result,
+                authorPublicKey: typeof payload.authorPublicKey === 'string' ? payload.authorPublicKey : undefined,
+                publishedAt: typeof payload.publishedAt === 'number' ? payload.publishedAt : undefined,
+            };
+        }
+        case EventType.CHAT_MESSAGE: {
+            const result = { type: EventType.CHAT_MESSAGE };
+            return {
+                ...result,
+                message: typeof payload.message === 'string' ? payload.message : undefined,
+                authorPublicKey: typeof payload.authorPublicKey === 'string' ? payload.authorPublicKey : undefined,
+                publishedAt: typeof payload.publishedAt === 'number' ? payload.publishedAt : undefined,
+            };
+        }
+        case EventType.APP_RECORD: {
+            if (typeof payload.protocol !== 'string')
+                throw new Error('APP_RECORD: invalid protocol');
+            if (typeof payload.record !== 'string')
+                throw new Error('APP_RECORD: invalid record');
+            if (typeof payload.authorPublicKey !== 'string')
+                throw new Error('APP_RECORD: invalid authorPublicKey');
+            if (typeof payload.publishedAt !== 'number')
+                throw new Error('APP_RECORD: invalid publishedAt');
+            assertFiniteUint(payload.publishedAt, 'publishedAt');
+            return {
+                type: EventType.APP_RECORD,
+                protocol: payload.protocol,
+                record: payload.record,
+                authorPublicKey: payload.authorPublicKey,
+                publishedAt: payload.publishedAt,
+            };
+        }
     }
-    if (typeof payload.hash !== 'string') {
-        throw new Error('Invalid hash');
+}
+function parseContentDescriptor(raw) {
+    if (typeof raw !== 'object' || raw === null)
+        throw new Error('CREATE_FILE: invalid content descriptor');
+    const c = raw;
+    if (c.protocol === 'nb.content.single.v1') {
+        if (typeof c.blockHash !== 'string')
+            throw new Error('CREATE_FILE: invalid content.blockHash');
+        return { protocol: 'nb.content.single.v1', blockHash: createHash(c.blockHash) };
     }
-    if (typeof payload.encryptedKey !== 'string') {
-        throw new Error('Invalid encryptedKey');
+    if (c.protocol === 'nb.content.manifest.v1') {
+        if (typeof c.manifestHash !== 'string')
+            throw new Error('CREATE_FILE: invalid content.manifestHash');
+        return { protocol: 'nb.content.manifest.v1', manifestHash: createHash(c.manifestHash) };
     }
-    if (payload.toFileName !== undefined && typeof payload.toFileName !== 'string') {
-        throw new Error('Invalid toFileName');
-    }
-    if (payload.contentType !== undefined && payload.contentType !== 'b' && payload.contentType !== 'm') {
-        throw new Error('Invalid contentType');
-    }
-    if (payload.size !== undefined)
-        assertFiniteUint(payload.size, 'size');
-    if (payload.createdAt !== undefined)
-        assertFiniteUint(payload.createdAt, 'createdAt');
-    if (payload.deletedAt !== undefined)
-        assertFiniteUint(payload.deletedAt, 'deletedAt');
-    if (payload.renamedAt !== undefined)
-        assertFiniteUint(payload.renamedAt, 'renamedAt');
-    if (payload.publishedAt !== undefined)
-        assertFiniteUint(payload.publishedAt, 'publishedAt');
-    if (payload.mimeType !== undefined && typeof payload.mimeType !== 'string')
-        throw new Error('Invalid mimeType');
-    if (payload.authorPublicKey !== undefined && typeof payload.authorPublicKey !== 'string') {
-        throw new Error('Invalid authorPublicKey');
-    }
-    if (payload.protocol !== undefined && typeof payload.protocol !== 'string')
-        throw new Error('Invalid protocol');
-    if (payload.record !== undefined && typeof payload.record !== 'string')
-        throw new Error('Invalid record');
-    if (payload.message !== undefined && typeof payload.message !== 'string')
-        throw new Error('Invalid message');
-    return {
-        type: payload.type,
-        fileName: payload.fileName,
-        toFileName: payload.toFileName,
-        hash: createHash(payload.hash),
-        encryptedKey: createEncryptedData(base64ToBytes(payload.encryptedKey)),
-        contentType: payload.contentType,
-        size: payload.size,
-        mimeType: payload.mimeType,
-        createdAt: payload.createdAt,
-        deletedAt: payload.deletedAt,
-        renamedAt: payload.renamedAt,
-        authorPublicKey: payload.authorPublicKey,
-        protocol: payload.protocol,
-        record: payload.record,
-        message: payload.message,
-        publishedAt: payload.publishedAt,
-    };
+    throw new Error(`CREATE_FILE: unknown content protocol: ${String(c.protocol)}`);
 }
 function assertFiniteUint(value, label) {
     if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value) || value < 0) {
