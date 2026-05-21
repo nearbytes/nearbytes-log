@@ -18,6 +18,16 @@ export class BlockStore {
     return `blocks/${hash}.bin`;
   }
 
+  /**
+   * Writes an encrypted block at its content-address (`blocks/<hash>.bin`).
+   *
+   * @param hash        - SHA-256 hash of `data`; used as the storage key.
+   * @param data        - Encrypted block bytes to store.
+   * @param skipIfExists - When `true`, the write is skipped if a block with
+   *                       this hash already exists (cheap deduplication).
+   * @param publicKey   - Required for multi-root backends; ignored otherwise.
+   * @throws StorageError on I/O failure.
+   */
   async store(
     hash: HashType,
     data: EncryptedData,
@@ -53,6 +63,16 @@ export class BlockStore {
     }
   }
 
+  /**
+   * Reads an encrypted block and verifies its content-address.
+   *
+   * Corrupt blocks (hash mismatch) are deleted before the error is thrown.
+   *
+   * @param hash      - Content-address of the block to retrieve.
+   * @param publicKey - Used by multi-root backends; ignored otherwise.
+   * @returns The encrypted block bytes.
+   * @throws StorageError if not found or integrity check fails.
+   */
   async retrieve(hash: HashType, publicKey?: PublicKey): Promise<EncryptedData> {
     try {
       const path = this.blockPath(hash);
@@ -84,6 +104,12 @@ export class BlockStore {
     }
   }
 
+  /**
+   * Returns `true` if a block with the given hash is already stored.
+   *
+   * @param hash      - Content-address to check.
+   * @param publicKey - Used by multi-root backends; ignored otherwise.
+   */
   async has(hash: HashType, publicKey?: PublicKey): Promise<boolean> {
     const path = this.blockPath(hash);
     const channelHex = publicKey ? publicKeyToHex(publicKey) : undefined;

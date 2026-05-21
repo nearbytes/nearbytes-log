@@ -29,6 +29,17 @@ export class EventLog {
     return `${this.channelPath(publicKey)}/${eventHash}.bin`;
   }
 
+  /**
+   * Persists a signed event to the channel's storage directory.
+   *
+   * The event is keyed by `SHA-256(serializeEventEnvelope(event.envelope))`.
+   * Storing the same event twice is safe — the key is deterministic.
+   *
+   * @param publicKey - The channel's public key (selects the storage directory).
+   * @param event     - Signed event to persist.
+   * @returns The content-address (hash) of the stored event.
+   * @throws StorageError on I/O failure.
+   */
   async storeEvent(publicKey: PublicKey, event: SignedEvent): Promise<HashType> {
     try {
       const envelopeBytes = serializeEventEnvelope(event.envelope);
@@ -54,6 +65,21 @@ export class EventLog {
     }
   }
 
+  /**
+   * Loads and verifies a single event by its content-address.
+   *
+   * Verification steps:
+   * 1. Structural integrity of the stored bytes.
+   * 2. Hash round-trip — the deserialized envelope re-hashes to `eventHash`.
+   * 3. ECDSA signature against `publicKey`.
+   *
+   * Corrupt events are deleted from storage before the error is thrown.
+   *
+   * @param publicKey - The channel's public key.
+   * @param eventHash - Content-address of the event to load.
+   * @returns The verified `SignedEvent`.
+   * @throws StorageError if not found, integrity check fails, or signature is invalid.
+   */
   async retrieveEvent(publicKey: PublicKey, eventHash: HashType): Promise<SignedEvent> {
     try {
       const eventPath = this.eventPath(publicKey, eventHash);
@@ -97,6 +123,17 @@ export class EventLog {
     }
   }
 
+  /**
+   * Returns the content-addresses of all events stored for a channel.
+   *
+   * Files that don't match the `<64-hex-chars>.bin` naming convention are
+   * silently ignored. The returned array has no guaranteed ordering — callers
+   * that need a deterministic replay order should sort by hash.
+   *
+   * @param publicKey - The channel's public key.
+   * @returns Array of event hashes (possibly empty if the channel has no events yet).
+   * @throws StorageError on I/O failure.
+   */
   async listEvents(publicKey: PublicKey): Promise<HashType[]> {
     try {
       const channelPath = this.channelPath(publicKey);
