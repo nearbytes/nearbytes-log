@@ -1,14 +1,13 @@
 # nearbytes-log
 
-Append-only, content-addressed event log and block store for the Nearbytes protocol.
+Append-only event log and content-addressed block store for the Nearbytes protocol.
 
-## What's inside
+## API
 
-- **`EventLog`** — append-only log of ECDSA-signed events per channel (public key). Events are content-addressed by `SHA-256(envelope-bytes)`, verified on read, and stored as `channels/<pubkey-hex>/<event-hash>.bin`.
-- **`BlockStore`** — key→value store for encrypted data blobs (`blocks/<hash>.bin`). Integrity is checked on every read.
-- **`createLog(storage, pathMapper?)`** — factory that wires both into a `Log` handle.
-- **Serialization** — `serializeEvent` / `deserializeEvent`, `serializeInnerEventPayload` / `deserializeInnerEventPayload`, and JSON variants for trusted local use.
-- **Integrity helpers** — `validateBlockBytes`, `validateEventBytes`, `parseCanonicalBlockRelativePath`, etc.
+- **`Log`** — `{ events: EventLogApi, blocks: BlockStoreApi }`
+- **`createFilesystemLog(dataDir)`** — Node.js disk root
+- **`createInMemoryLog(options?)`** — in-memory (tests)
+- **Protocol** — `serializeEventEnvelope`, `validateEventBytes`, `createSignedEvent`, …
 
 ## Install
 
@@ -16,35 +15,28 @@ Append-only, content-addressed event log and block store for the Nearbytes proto
 yarn add nearbytes/nearbytes-log#main
 ```
 
-## Quick start
+## Example
 
 ```ts
-import { createLog } from 'nearbytes-log';
-import { FilesystemStorageBackend } from 'nearbytes-storage';
+import { createFilesystemLog } from 'nearbytes-log';
 
-const storage = new FilesystemStorageBackend('/path/to/data');
-const log = createLog(storage);
-
-// Store a signed event
-const eventHash = await log.events.storeEvent(publicKey, signedEvent);
-
-// Retrieve it
-const event = await log.events.retrieveEvent(publicKey, eventHash);
-
-// Store a block
-await log.blocks.store(hash, encryptedData);
-const block = await log.blocks.retrieve(hash);
+const log = createFilesystemLog('/path/to/data');
+const hash = await log.events.storeEvent(publicKey, signedEvent);
+const block = await log.blocks.retrieve(contentHash);
 ```
 
-## Package structure
+## Layout
 
 ```
 src/
-  log.ts           — Log interface + createLog() factory
-  eventLog.ts      — EventLog class (storeEvent, retrieveEvent, listEvents)
-  blockStore.ts    — BlockStore class (store, retrieve, has)
-  serialization.ts — event ↔ binary/JSON serialization
-  integrity.ts     — hash/signature validation helpers
-  eventEnvelope.ts — createSignedEvent, eventEnvelopePublicKeyMatches, hydrateSignedEvent
-  types.ts         — EventLogEntry
+  api.ts              — Log, EventLogApi, BlockStoreApi
+  paths.ts            — channel/block path helpers
+  impl/filesystem.ts  — createFilesystemLog
+  impl/memory.ts      — createInMemoryLog
+  internal/           — not exported
+  serialization.ts    — protocol codecs
+  integrity.ts        — validation
+  eventEnvelope.ts    — sign / decrypt helpers
 ```
+
+Spec: `nearbytes-specs/storage/log-api-v1.md`

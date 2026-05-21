@@ -150,7 +150,7 @@ export function serializeInnerEventPayloadJson(payload: EventPayload): Serialize
   }
 }
 
-// Transitional alias while callers move from cleartext payload signing to envelope signing.
+/** @deprecated Use `serializeInnerEventPayload`. */
 export const serializeEventPayload = serializeInnerEventPayload;
 
 export function deserializeInnerEventPayloadJson(data: unknown): EventPayload {

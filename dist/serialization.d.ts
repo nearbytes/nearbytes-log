@@ -5,6 +5,7 @@ export declare function serializeEventEnvelope(envelope: EventEnvelope): Uint8Ar
 export declare function serializeInnerEventPayload(payload: EventPayload): Uint8Array;
 export declare function deserializeInnerEventPayload(data: Uint8Array): EventPayload;
 export declare function serializeInnerEventPayloadJson(payload: EventPayload): SerializedEventPayload;
+/** @deprecated Use `serializeInnerEventPayload`. */
 export declare const serializeEventPayload: typeof serializeInnerEventPayload;
 export declare function deserializeInnerEventPayloadJson(data: unknown): EventPayload;
 //# sourceMappingURL=serialization.d.ts.map
