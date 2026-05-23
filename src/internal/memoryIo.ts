@@ -39,6 +39,22 @@ export function createMemoryIo(store: MemoryStore = createMemoryStore()): LogIo 
     return [...names].sort((a, b) => a.localeCompare(b));
   };
 
+  const listDirectories = async (directory: string): Promise<string[]> => {
+    const prefix = directoryPrefix(directory);
+    const names = new Set<string>();
+    for (const path of store.listPaths()) {
+      if (prefix !== '' && !path.startsWith(prefix)) {
+        continue;
+      }
+      const remainder = prefix === '' ? path : path.slice(prefix.length);
+      const slash = remainder.indexOf('/');
+      if (slash > 0) {
+        names.add(remainder.slice(0, slash));
+      }
+    }
+    return [...names].filter((n) => n.length > 0).sort((a, b) => a.localeCompare(b));
+  };
+
   const createDirectory = async (path: string): Promise<void> => {
     store.markDirectory(normalizePath(path));
   };
@@ -62,5 +78,5 @@ export function createMemoryIo(store: MemoryStore = createMemoryStore()): LogIo 
     store.delete(path);
   };
 
-  return { readFile, writeFile, listFiles, createDirectory, exists, deleteFile };
+  return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }

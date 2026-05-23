@@ -1,6 +1,7 @@
 import type { Hash, PublicKey, SerializedEvent, SignedEvent } from 'nearbytes-crypto';
 import { StorageError, computeHash, verifyPU } from 'nearbytes-crypto';
 import type { ChannelPathMapper, EventLogApi } from '../api.js';
+import { publicKeyFromHex } from '../integrity.js';
 import { defaultPathMapper, eventHashFromFileName, eventPath, publicKeyToHex } from '../paths.js';
 import { deserializeEvent, serializeEvent, serializeEventEnvelope } from '../serialization.js';
 import { validateEventBytes } from '../integrity.js';
@@ -79,5 +80,17 @@ export function createEventLogApi(
     }
   };
 
-  return { storeEvent, retrieveEvent, listEvents };
+  const listChannels = async (): Promise<PublicKey[]> => {
+    const dirs = await io.listDirectories('channels');
+    const keys: PublicKey[] = [];
+    for (const hex of dirs) {
+      const pk = publicKeyFromHex(hex);
+      if (pk) {
+        keys.push(pk);
+      }
+    }
+    return keys;
+  };
+
+  return { storeEvent, retrieveEvent, listEvents, listChannels };
 }

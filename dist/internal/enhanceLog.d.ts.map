@@ -1,0 +1,1 @@
+{"version":3,"file":"enhanceLog.d.ts","sourceRoot":"","sources":["../../src/internal/enhanceLog.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAA8B,GAAG,EAAE,MAAM,WAAW,CAAC;AACjE,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,WAAW,CAAC;AAUnD,OAAO,KAAK,EAAE,KAAK,EAAE,MAAM,SAAS,CAAC;AAsCrC;;GAEG;AACH,wBAAgB,eAAe,CAAC,EAAE,EAAE,KAAK,EAAE,UAAU,EAAE,iBAAiB,GAAG,GAAG,CA+B7E"}

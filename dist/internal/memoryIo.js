@@ -29,6 +29,21 @@ export function createMemoryIo(store = createMemoryStore()) {
         }
         return [...names].sort((a, b) => a.localeCompare(b));
     };
+    const listDirectories = async (directory) => {
+        const prefix = directoryPrefix(directory);
+        const names = new Set();
+        for (const path of store.listPaths()) {
+            if (prefix !== '' && !path.startsWith(prefix)) {
+                continue;
+            }
+            const remainder = prefix === '' ? path : path.slice(prefix.length);
+            const slash = remainder.indexOf('/');
+            if (slash > 0) {
+                names.add(remainder.slice(0, slash));
+            }
+        }
+        return [...names].filter((n) => n.length > 0).sort((a, b) => a.localeCompare(b));
+    };
     const createDirectory = async (path) => {
         store.markDirectory(normalizePath(path));
     };
@@ -49,6 +64,6 @@ export function createMemoryIo(store = createMemoryStore()) {
     const deleteFile = async (path) => {
         store.delete(path);
     };
-    return { readFile, writeFile, listFiles, createDirectory, exists, deleteFile };
+    return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }
 //# sourceMappingURL=memoryIo.js.map

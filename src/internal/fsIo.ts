@@ -52,6 +52,21 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
+  const listDirectories = async (directory: string): Promise<string[]> => {
+    try {
+      const entries = await fs.readdir(join(basePath, directory), { withFileTypes: true });
+      return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return [];
+      }
+      throw new StorageError(
+        `Failed to list directories in ${directory}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  };
+
   const createDirectory = async (path: string): Promise<void> => {
     try {
       await fs.mkdir(join(basePath, path), { recursive: true });
@@ -86,5 +101,5 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
-  return { readFile, writeFile, listFiles, createDirectory, exists, deleteFile };
+  return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }

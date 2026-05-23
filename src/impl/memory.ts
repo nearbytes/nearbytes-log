@@ -1,10 +1,9 @@
 import type { ChannelPathMapper, Log } from '../api.js';
 import { defaultPathMapper } from '../paths.js';
-import { createBlockStoreApi } from '../internal/blockApi.js';
-import { createEventLogApi } from '../internal/eventApi.js';
 import { createMemoryIo } from '../internal/memoryIo.js';
 import type { MemoryStore } from '../internal/memoryStore.js';
 import { createMemoryStore } from '../internal/memoryStore.js';
+import { createLogFromIo } from './fromIo.js';
 
 export interface InMemoryLogOptions {
   readonly pathMapper?: ChannelPathMapper;
@@ -18,8 +17,5 @@ export function createInMemoryLog(options: InMemoryLogOptions = {}): Log {
   const store = options.store ?? createMemoryStore();
   const io = createMemoryIo(store);
   const pathMapper = options.pathMapper ?? defaultPathMapper;
-  return {
-    events: createEventLogApi(io, pathMapper),
-    blocks: createBlockStoreApi(io),
-  };
+  return createLogFromIo(io, pathMapper);
 }

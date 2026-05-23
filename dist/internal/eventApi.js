@@ -1,4 +1,5 @@
 import { StorageError, computeHash, verifyPU } from 'nearbytes-crypto';
+import { publicKeyFromHex } from '../integrity.js';
 import { defaultPathMapper, eventHashFromFileName, eventPath, publicKeyToHex } from '../paths.js';
 import { deserializeEvent, serializeEvent, serializeEventEnvelope } from '../serialization.js';
 import { validateEventBytes } from '../integrity.js';
@@ -62,6 +63,17 @@ export function createEventLogApi(io, pathMapper = defaultPathMapper) {
             throw new StorageError(`Failed to list events: ${error instanceof Error ? error.message : 'unknown error'}`, error instanceof Error ? error : undefined);
         }
     };
-    return { storeEvent, retrieveEvent, listEvents };
+    const listChannels = async () => {
+        const dirs = await io.listDirectories('channels');
+        const keys = [];
+        for (const hex of dirs) {
+            const pk = publicKeyFromHex(hex);
+            if (pk) {
+                keys.push(pk);
+            }
+        }
+        return keys;
+    };
+    return { storeEvent, retrieveEvent, listEvents, listChannels };
 }
 //# sourceMappingURL=eventApi.js.map
