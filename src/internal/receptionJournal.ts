@@ -65,8 +65,16 @@ function headSet(heads: ReceptionObjectRef[]): Set<string> {
 }
 
 export function createReceptionJournal(io: LogIo): ReceptionApi {
+  /** Serializes concurrent appends (sync may store events/blocks in parallel). */
+  let appendChain: Promise<string> = Promise.resolve('0');
+  const appendReception = (ref: ReceptionObjectRef): Promise<string> => {
+    const next = appendChain.then(() => appendLine(io, ref));
+    appendChain = next.catch(() => appendChain);
+    return next;
+  };
+
   return {
-    appendReception: (ref) => appendLine(io, ref),
+    appendReception,
 
     async listAfter(cursor?: string, limit = 256): Promise<ReceptionListResult> {
       const lines = await readAllLines(io);
