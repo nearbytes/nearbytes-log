@@ -52,8 +52,15 @@ function headSet(heads) {
     return keys;
 }
 export function createReceptionJournal(io) {
+    /** Serializes concurrent appends (sync may store events/blocks in parallel). */
+    let appendChain = Promise.resolve('0');
+    const appendReception = (ref) => {
+        const next = appendChain.then(() => appendLine(io, ref));
+        appendChain = next.catch(() => appendChain);
+        return next;
+    };
     return {
-        appendReception: (ref) => appendLine(io, ref),
+        appendReception,
         async listAfter(cursor, limit = 256) {
             const lines = await readAllLines(io);
             const startSeq = cursor === undefined ? -1 : Number.parseInt(cursor, 10);
