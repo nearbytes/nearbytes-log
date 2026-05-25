@@ -28,7 +28,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "nearbytes-crypto": "file:../nearbytes-crypto"
+    "nearbytes-crypto": "github:nearbytes/nearbytes-crypto#main"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
