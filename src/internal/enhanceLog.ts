@@ -36,14 +36,21 @@ function wrapEventLog(
 
 function wrapBlockStore(base: BlockStoreApi, onStored: (hash: Hash) => Promise<void>): BlockStoreApi {
   return {
-    store: async (hash, data, skipIfExists) => {
-      const existed = await base.has(hash);
-      await base.store(hash, data, skipIfExists);
-      if (!existed || !skipIfExists) {
+    store: async (data, skipIfExists) => {
+      const hash = await base.store(data, skipIfExists);
+      // The reception journal is idempotent on duplicates; we don't need a
+      // pre-check (the hash is only knowable after `base.store` returns).
+      await onStored(hash);
+      return hash;
+    },
+    storeAlreadyVerified: async (hash, data, skipIfExists) => {
+      const existed = skipIfExists ? await base.has(hash) : false;
+      await base.storeAlreadyVerified(hash, data, skipIfExists);
+      if (!existed) {
         await onStored(hash);
       }
     },
-    retrieve: (hash) => base.retrieve(hash),
+    retrieve: (hash, options) => base.retrieve(hash, options),
     has: (hash) => base.has(hash),
   };
 }

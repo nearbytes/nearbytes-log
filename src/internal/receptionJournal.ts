@@ -17,7 +17,8 @@ function parseLine(raw: string): ReceptionLine | null {
       return null;
     }
     return parsed;
-  } catch {
+  } catch (err) {
+    console.warn('[nearbytes-log:reception] malformed journal line:', raw.slice(0, 80), err);
     return null;
   }
 }
@@ -69,7 +70,10 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
   let appendChain: Promise<string> = Promise.resolve('0');
   const appendReception = (ref: ReceptionObjectRef): Promise<string> => {
     const next = appendChain.then(() => appendLine(io, ref));
-    appendChain = next.catch(() => appendChain);
+    appendChain = next.catch((err) => {
+      console.error('[nearbytes-log:reception] append failed:', err);
+      return appendChain;
+    });
     return next;
   };
 
