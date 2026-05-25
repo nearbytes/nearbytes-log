@@ -20,15 +20,14 @@
   },
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit",
-    "prepack": "tsc"
+    "type-check": "tsc --noEmit"
   },
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "nearbytes-crypto": "github:nearbytes/nearbytes-crypto#main"
+    "nearbytes-crypto": "file:../nearbytes-crypto"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
