@@ -20,8 +20,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit",
-    "postinstall": "tsc"
+    "type-check": "tsc --noEmit"
   },
   "license": "MIT",
   "engines": {
