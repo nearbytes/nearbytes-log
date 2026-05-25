@@ -1,1 +1,1 @@
-{"version":3,"file":"memoryIo.d.ts","sourceRoot":"","sources":["../../src/internal/memoryIo.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,KAAK,EAAE,MAAM,SAAS,CAAC;AACrC,OAAO,EAIL,KAAK,WAAW,EACjB,MAAM,kBAAkB,CAAC;AAE1B;;GAEG;AACH,wBAAgB,cAAc,CAAC,KAAK,GAAE,WAAiC,GAAG,KAAK,CAqE9E"}
+{"version":3,"file":"memoryIo.d.ts","sourceRoot":"","sources":["../../src/internal/memoryIo.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,KAAK,EAAE,MAAM,SAAS,CAAC;AACrC,OAAO,EAIL,KAAK,WAAW,EACjB,MAAM,kBAAkB,CAAC;AAE1B;;GAEG;AACH,wBAAgB,cAAc,CAAC,KAAK,GAAE,WAAiC,GAAG,KAAK,CAiF9E"}

@@ -29,6 +29,16 @@ export function createFsIo(basePath) {
             throw new StorageError(`Failed to write file ${path}: ${error instanceof Error ? error.message : 'unknown error'}`, error instanceof Error ? error : undefined);
         }
     };
+    const appendFile = async (path, data) => {
+        try {
+            const fullPath = join(basePath, path);
+            await fs.mkdir(dirname(fullPath), { recursive: true });
+            await fs.appendFile(fullPath, data);
+        }
+        catch (error) {
+            throw new StorageError(`Failed to append to file ${path}: ${error instanceof Error ? error.message : 'unknown error'}`, error instanceof Error ? error : undefined);
+        }
+    };
     const listFiles = async (directory) => {
         try {
             const entries = await fs.readdir(join(basePath, directory), { withFileTypes: true });
@@ -81,6 +91,6 @@ export function createFsIo(basePath) {
             throw new StorageError(`Failed to delete file ${path}: ${error instanceof Error ? error.message : 'unknown error'}`, error instanceof Error ? error : undefined);
         }
     };
-    return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
+    return { readFile, writeFile, appendFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }
 //# sourceMappingURL=fsIo.js.map

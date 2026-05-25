@@ -14,6 +14,17 @@ export function createMemoryIo(store = createMemoryStore()) {
     const writeFile = async (path, data) => {
         store.put(path, data);
     };
+    const appendFile = async (path, data) => {
+        const existing = store.get(path);
+        if (!existing || existing.length === 0) {
+            store.put(path, data);
+            return;
+        }
+        const merged = new Uint8Array(existing.length + data.length);
+        merged.set(existing, 0);
+        merged.set(data, existing.length);
+        store.put(path, merged);
+    };
     const listFiles = async (directory) => {
         const prefix = directoryPrefix(directory);
         const names = new Set();
@@ -64,6 +75,6 @@ export function createMemoryIo(store = createMemoryStore()) {
     const deleteFile = async (path) => {
         store.delete(path);
     };
-    return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
+    return { readFile, writeFile, appendFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }
 //# sourceMappingURL=memoryIo.js.map

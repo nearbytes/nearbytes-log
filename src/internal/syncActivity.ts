@@ -13,8 +13,8 @@ export function createSyncActivity(io: LogIo): SyncActivityApi {
       // O(1) append: `fs.appendFile` on POSIX is a single `write(2)` with
       // `O_APPEND` semantics, so concurrent calls cannot interleave bytes
       // within one line (writes are at most PIPE_BUF, ~4 KiB). The previous
-      // read-then-write implementation was O(file_size) per call and
-      // became the dominant cost during long benchmark runs.
+      // read-then-write implementation was O(file_size) per call and became
+      // the dominant cost under sustained activity.
       await io.appendFile(ACTIVITY_PATH, new TextEncoder().encode(`${sanitized}\n`));
     },
 

@@ -8,7 +8,8 @@ function parseLine(raw) {
         }
         return parsed;
     }
-    catch {
+    catch (err) {
+        console.warn('[nearbytes-log:reception] malformed journal line:', raw.slice(0, 80), err);
         return null;
     }
 }
@@ -30,13 +31,17 @@ async function readAllLines(io) {
     }
     return lines;
 }
-async function appendLine(io, ref) {
-    const lines = await readAllLines(io);
-    const seq = lines.length > 0 ? lines[lines.length - 1].seq + 1 : 0;
+/**
+ * Append one reception line. The seq counter is maintained in-process by the
+ * caller (see `createReceptionJournal` below): we MUST NOT scan the journal on
+ * every append, otherwise the cost grows quadratically with the number of
+ * receptions. The file is opened in append mode, so single-line writes are
+ * atomic on POSIX (`O_APPEND`).
+ */
+async function appendLine(io, seq, ref) {
     const entry = { seq, ref };
     const payload = `${JSON.stringify(entry)}\n`;
-    const existing = lines.length > 0 ? new TextDecoder().decode(await io.readFile(RECEPTION_PATH)) : '';
-    await io.writeFile(RECEPTION_PATH, new TextEncoder().encode(existing + payload));
+    await io.appendFile(RECEPTION_PATH, new TextEncoder().encode(payload));
     return String(seq);
 }
 function headSet(heads) {
@@ -52,11 +57,31 @@ function headSet(heads) {
     return keys;
 }
 export function createReceptionJournal(io) {
-    /** Serializes concurrent appends (sync may store events/blocks in parallel). */
+    /**
+     * Monotonic seq counter held in process memory. Initial value is loaded
+     * lazily from the journal once; subsequent appends increment it locally.
+     * Concurrent appends are serialised through a promise chain so the on-disk
+     * order matches the seq order.
+     */
+    let nextSeq = null;
     let appendChain = Promise.resolve('0');
+    const ensureSeqLoaded = async () => {
+        if (nextSeq !== null)
+            return nextSeq;
+        const lines = await readAllLines(io);
+        nextSeq = lines.length > 0 ? lines[lines.length - 1].seq + 1 : 0;
+        return nextSeq;
+    };
     const appendReception = (ref) => {
-        const next = appendChain.then(() => appendLine(io, ref));
-        appendChain = next.catch(() => appendChain);
+        const next = appendChain.then(async () => {
+            const seq = await ensureSeqLoaded();
+            nextSeq = seq + 1;
+            return appendLine(io, seq, ref);
+        });
+        appendChain = next.catch((err) => {
+            console.error('[nearbytes-log:reception] append failed:', err);
+            return appendChain;
+        });
         return next;
     };
     return {
