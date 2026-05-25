@@ -4,28 +4,18 @@ import type { LogIo } from './io.js';
 const ACTIVITY_PATH = 'sync/activity.log';
 
 export function createSyncActivity(io: LogIo): SyncActivityApi {
-  let writeChain: Promise<void> = Promise.resolve();
-  const enqueueAppend = (line: string): Promise<void> => {
-    const next = writeChain.then(async () => {
-      const existing = (await io.exists(ACTIVITY_PATH))
-        ? new TextDecoder().decode(await io.readFile(ACTIVITY_PATH))
-        : '';
-      await io.writeFile(
-        ACTIVITY_PATH,
-        new TextEncoder().encode(`${existing}${line}\n`),
-      );
-    });
-    writeChain = next.catch(() => undefined);
-    return next;
-  };
-
   return {
     async appendMarker(line: string): Promise<void> {
       const sanitized = line.replace(/\r?\n/g, ' ').trim();
       if (sanitized.length === 0) {
         return;
       }
-      await enqueueAppend(sanitized);
+      // O(1) append: `fs.appendFile` on POSIX is a single `write(2)` with
+      // `O_APPEND` semantics, so concurrent calls cannot interleave bytes
+      // within one line (writes are at most PIPE_BUF, ~4 KiB). The previous
+      // read-then-write implementation was O(file_size) per call and
+      // became the dominant cost during long benchmark runs.
+      await io.appendFile(ACTIVITY_PATH, new TextEncoder().encode(`${sanitized}\n`));
     },
 
     async readMarkers(): Promise<string[]> {

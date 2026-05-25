@@ -42,14 +42,17 @@ async function readAllLines(io: LogIo): Promise<ReceptionLine[]> {
   return lines;
 }
 
-async function appendLine(io: LogIo, ref: ReceptionObjectRef): Promise<string> {
-  const lines = await readAllLines(io);
-  const seq = lines.length > 0 ? lines[lines.length - 1]!.seq + 1 : 0;
+/**
+ * Append one reception line. The seq counter is maintained in-process by the
+ * caller (see `createReceptionJournal` below): we MUST NOT scan the journal on
+ * every append, otherwise the cost grows quadratically with the number of
+ * receptions. The file is opened in append mode, so single-line writes are
+ * atomic on POSIX (`O_APPEND`).
+ */
+async function appendLine(io: LogIo, seq: number, ref: ReceptionObjectRef): Promise<string> {
   const entry: ReceptionLine = { seq, ref };
   const payload = `${JSON.stringify(entry)}\n`;
-  const existing =
-    lines.length > 0 ? new TextDecoder().decode(await io.readFile(RECEPTION_PATH)) : '';
-  await io.writeFile(RECEPTION_PATH, new TextEncoder().encode(existing + payload));
+  await io.appendFile(RECEPTION_PATH, new TextEncoder().encode(payload));
   return String(seq);
 }
 
@@ -66,10 +69,28 @@ function headSet(heads: ReceptionObjectRef[]): Set<string> {
 }
 
 export function createReceptionJournal(io: LogIo): ReceptionApi {
-  /** Serializes concurrent appends (sync may store events/blocks in parallel). */
+  /**
+   * Monotonic seq counter held in process memory. Initial value is loaded
+   * lazily from the journal once; subsequent appends increment it locally.
+   * Concurrent appends are serialised through a promise chain so the on-disk
+   * order matches the seq order.
+   */
+  let nextSeq: number | null = null;
   let appendChain: Promise<string> = Promise.resolve('0');
+
+  const ensureSeqLoaded = async (): Promise<number> => {
+    if (nextSeq !== null) return nextSeq;
+    const lines = await readAllLines(io);
+    nextSeq = lines.length > 0 ? lines[lines.length - 1]!.seq + 1 : 0;
+    return nextSeq;
+  };
+
   const appendReception = (ref: ReceptionObjectRef): Promise<string> => {
-    const next = appendChain.then(() => appendLine(io, ref));
+    const next = appendChain.then(async () => {
+      const seq = await ensureSeqLoaded();
+      nextSeq = seq + 1;
+      return appendLine(io, seq, ref);
+    });
     appendChain = next.catch((err) => {
       console.error('[nearbytes-log:reception] append failed:', err);
       return appendChain;

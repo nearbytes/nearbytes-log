@@ -37,6 +37,19 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
+  const appendFile = async (path: string, data: Uint8Array): Promise<void> => {
+    try {
+      const fullPath = join(basePath, path);
+      await fs.mkdir(dirname(fullPath), { recursive: true });
+      await fs.appendFile(fullPath, data);
+    } catch (error) {
+      throw new StorageError(
+        `Failed to append to file ${path}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  };
+
   const listFiles = async (directory: string): Promise<string[]> => {
     try {
       const entries = await fs.readdir(join(basePath, directory), { withFileTypes: true });
@@ -101,5 +114,5 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
-  return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
+  return { readFile, writeFile, appendFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }

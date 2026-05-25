@@ -23,6 +23,18 @@ export function createMemoryIo(store: MemoryStore = createMemoryStore()): LogIo 
     store.put(path, data);
   };
 
+  const appendFile = async (path: string, data: Uint8Array): Promise<void> => {
+    const existing = store.get(path);
+    if (!existing || existing.length === 0) {
+      store.put(path, data);
+      return;
+    }
+    const merged = new Uint8Array(existing.length + data.length);
+    merged.set(existing, 0);
+    merged.set(data, existing.length);
+    store.put(path, merged);
+  };
+
   const listFiles = async (directory: string): Promise<string[]> => {
     const prefix = directoryPrefix(directory);
     const names = new Set<string>();
@@ -78,5 +90,5 @@ export function createMemoryIo(store: MemoryStore = createMemoryStore()): LogIo 
     store.delete(path);
   };
 
-  return { readFile, writeFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
+  return { readFile, writeFile, appendFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
 }
