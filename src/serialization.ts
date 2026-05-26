@@ -5,8 +5,9 @@ import type {
   SerializedEventPayload,
   SignedEvent,
   CreateFilePayload,
-  DeleteFilePayload,
-  RenameFilePayload,
+  MkdirPayload,
+  DeletePayload,
+  RenamePayload,
   DeclareIdentityPayload,
   ChatMessagePayload,
   AppRecordPayload,
@@ -96,7 +97,7 @@ export function serializeInnerEventPayloadJson(payload: EventPayload): Serialize
       const p = payload as CreateFilePayload;
       const result: Record<string, unknown> = {
         type: p.type,
-        filename: p.filename,
+        path: p.path,
         content: p.content,
         wrappedKey: bytesToBase64(p.wrappedKey),
         createdAt: p.createdAt,
@@ -104,20 +105,28 @@ export function serializeInnerEventPayloadJson(payload: EventPayload): Serialize
       if (p.mimeType !== undefined) result.mimeType = p.mimeType;
       return result;
     }
-    case EventType.DELETE_FILE: {
-      const p = payload as DeleteFilePayload;
+    case EventType.MKDIR: {
+      const p = payload as MkdirPayload;
       return {
         type: p.type,
-        filename: p.filename,
+        path: p.path,
+        createdAt: p.createdAt,
+      };
+    }
+    case EventType.DELETE: {
+      const p = payload as DeletePayload;
+      return {
+        type: p.type,
+        path: p.path,
         deletedAt: p.deletedAt,
       };
     }
-    case EventType.RENAME_FILE: {
-      const p = payload as RenameFilePayload;
+    case EventType.RENAME: {
+      const p = payload as RenamePayload;
       return {
         type: p.type,
-        filename: p.filename,
-        toFilename: p.toFilename,
+        fromPath: p.fromPath,
+        toPath: p.toPath,
         renamedAt: p.renamedAt,
       };
     }
@@ -165,14 +174,14 @@ export function deserializeInnerEventPayloadJson(data: unknown): EventPayload {
 
   switch (type) {
     case EventType.CREATE_FILE: {
-      if (typeof payload.filename !== 'string') throw new Error('CREATE_FILE: invalid filename');
+      if (typeof payload.path !== 'string') throw new Error('CREATE_FILE: invalid path');
       if (typeof payload.wrappedKey !== 'string') throw new Error('CREATE_FILE: invalid wrappedKey');
       if (typeof payload.createdAt !== 'number') throw new Error('CREATE_FILE: invalid createdAt');
       assertFiniteUint(payload.createdAt, 'createdAt');
       const content = parseContentDescriptor(payload.content);
       const result: CreateFilePayload = {
         type: EventType.CREATE_FILE,
-        filename: payload.filename,
+        path: payload.path,
         content,
         wrappedKey: createEncryptedData(base64ToBytes(payload.wrappedKey)),
         createdAt: payload.createdAt,
@@ -183,25 +192,35 @@ export function deserializeInnerEventPayloadJson(data: unknown): EventPayload {
       }
       return result;
     }
-    case EventType.DELETE_FILE: {
-      if (typeof payload.filename !== 'string') throw new Error('DELETE_FILE: invalid filename');
-      if (typeof payload.deletedAt !== 'number') throw new Error('DELETE_FILE: invalid deletedAt');
+    case EventType.MKDIR: {
+      if (typeof payload.path !== 'string') throw new Error('MKDIR: invalid path');
+      if (typeof payload.createdAt !== 'number') throw new Error('MKDIR: invalid createdAt');
+      assertFiniteUint(payload.createdAt, 'createdAt');
+      return {
+        type: EventType.MKDIR,
+        path: payload.path,
+        createdAt: payload.createdAt,
+      };
+    }
+    case EventType.DELETE: {
+      if (typeof payload.path !== 'string') throw new Error('DELETE: invalid path');
+      if (typeof payload.deletedAt !== 'number') throw new Error('DELETE: invalid deletedAt');
       assertFiniteUint(payload.deletedAt, 'deletedAt');
       return {
-        type: EventType.DELETE_FILE,
-        filename: payload.filename,
+        type: EventType.DELETE,
+        path: payload.path,
         deletedAt: payload.deletedAt,
       };
     }
-    case EventType.RENAME_FILE: {
-      if (typeof payload.filename !== 'string') throw new Error('RENAME_FILE: invalid filename');
-      if (typeof payload.toFilename !== 'string') throw new Error('RENAME_FILE: invalid toFilename');
-      if (typeof payload.renamedAt !== 'number') throw new Error('RENAME_FILE: invalid renamedAt');
+    case EventType.RENAME: {
+      if (typeof payload.fromPath !== 'string') throw new Error('RENAME: invalid fromPath');
+      if (typeof payload.toPath !== 'string') throw new Error('RENAME: invalid toPath');
+      if (typeof payload.renamedAt !== 'number') throw new Error('RENAME: invalid renamedAt');
       assertFiniteUint(payload.renamedAt, 'renamedAt');
       return {
-        type: EventType.RENAME_FILE,
-        filename: payload.filename,
-        toFilename: payload.toFilename,
+        type: EventType.RENAME,
+        fromPath: payload.fromPath,
+        toPath: payload.toPath,
         renamedAt: payload.renamedAt,
       };
     }

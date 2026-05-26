@@ -30,12 +30,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nearbytes-crypto@github:nearbytes/nearbytes-crypto#b63d261fb470e135b20a7c2f5f85691ffa52d695":
+"nearbytes-crypto@github:nearbytes/nearbytes-crypto#6859719510764702844882b8488b35ab31f20145":
   version: 0.1.0
-  resolution: "nearbytes-crypto@https://github.com/nearbytes/nearbytes-crypto.git#commit=b63d261fb470e135b20a7c2f5f85691ffa52d695"
+  resolution: "nearbytes-crypto@https://github.com/nearbytes/nearbytes-crypto.git#commit=6859719510764702844882b8488b35ab31f20145"
   dependencies:
     "@noble/curves": "npm:^1.9.7"
-  checksum: 10c0/8d3b01cf6ace6e337b6ef1559ec10daec66a164411b6d782352c0ebd90ba3dbaf37a5417784d6c75711a292b88fdb0aa7e82eca945a79218b303e68b5218401a
+  checksum: 10c0/622a5c93b94744e438decf4ff5d8ab30b86ba1ed1b787b93f9317756f41815632b1e0bc17064ac1bfb706e8e727fbba2268b9c37d72b23510a9daeafe7ee2d10
   languageName: node
   linkType: hard
 
@@ -44,7 +44,7 @@ __metadata:
   resolution: "nearbytes-log@workspace:."
   dependencies:
     "@types/node": "npm:^20.10.0"
-    nearbytes-crypto: "github:nearbytes/nearbytes-crypto#b63d261fb470e135b20a7c2f5f85691ffa52d695"
+    nearbytes-crypto: "github:nearbytes/nearbytes-crypto#6859719510764702844882b8488b35ab31f20145"
     typescript: "npm:^5.3.2"
   languageName: unknown
   linkType: soft
