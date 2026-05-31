@@ -5,8 +5,6 @@ import { blockPath } from '../paths.js';
 import { validateBlockBytes } from '../integrity.js';
 import type { LogIo } from './io.js';
 
-const BLOCK_FILE_RE = /^([a-f0-9]{64})\.bin$/i;
-
 /**
  * Block store backed by a `LogIo` implementation. The log is the sole
  * authority of the block content-address (see `storage/log-api-v1.md` §2.3):
@@ -77,17 +75,6 @@ export function createBlockStoreApi(io: LogIo): BlockStoreApi {
   };
 
   const has = async (hash: Hash): Promise<boolean> => io.exists(blockPath(hash));
-  const listBlocks = async (): Promise<Hash[]> => {
-    const files = await io.listFiles('blocks');
-    const hashes: Hash[] = [];
-    for (const file of files) {
-      const match = file.match(BLOCK_FILE_RE);
-      if (match?.[1]) {
-        hashes.push(match[1].toLowerCase() as Hash);
-      }
-    }
-    return hashes.sort((a, b) => a.localeCompare(b));
-  };
 
-  return { store, storeAlreadyVerified, retrieve, has, listBlocks };
+  return { store, storeAlreadyVerified, retrieve, has };
 }

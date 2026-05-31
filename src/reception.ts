@@ -11,11 +11,6 @@ export interface ReceptionListResult {
   readonly more: boolean;
 }
 
-export interface ReceptionRepairResult {
-  /** Number of missing reception entries appended during this repair pass. */
-  readonly appended: number;
-}
-
 /**
  * Append-only local reception journal for efficient {@link global_delta} queries.
  */
@@ -27,13 +22,6 @@ export interface ReceptionApi {
     heads: ReceptionObjectRef[],
     limit?: number,
   ): Promise<ReceptionListResult>;
-  /**
-   * Repair the sync-facing reception journal from the local object inventory.
-   * Filesystem-backed logs use this at sync startup so historical blocks/events
-   * remain advertiseable even if they were written before a daemon watched the
-   * storage root.
-   */
-  repairFromInventory(): Promise<ReceptionRepairResult>;
 }
 
 /** Append-only sync lifecycle markers (plain UTF-8 lines). */

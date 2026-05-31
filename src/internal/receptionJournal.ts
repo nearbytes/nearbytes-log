@@ -4,8 +4,6 @@ import { publicKeyToHex } from '../paths.js';
 import type { LogIo } from './io.js';
 
 const RECEPTION_PATH = 'sync/reception.jsonl';
-const CHANNEL_DIR_RE = /^[a-f0-9]{130}$/i;
-const OBJECT_FILE_RE = /^([a-f0-9]{64})\.bin$/i;
 
 interface ReceptionLine {
   readonly seq: number;
@@ -68,42 +66,6 @@ function headSet(heads: ReceptionObjectRef[]): Set<string> {
     }
   }
   return keys;
-}
-
-function refKey(ref: ReceptionObjectRef): string {
-  if (ref.kind === 'event') {
-    return `event:${ref.channel.toLowerCase()}:${ref.hash.toLowerCase()}`;
-  }
-  return `block:${ref.hash.toLowerCase()}`;
-}
-
-async function inventoryRefs(io: LogIo): Promise<ReceptionObjectRef[]> {
-  const refs: ReceptionObjectRef[] = [];
-  const blockFiles = await io.listFiles('blocks');
-  for (const file of blockFiles) {
-    const match = file.match(OBJECT_FILE_RE);
-    if (match?.[1]) {
-      refs.push({ kind: 'block', hash: match[1].toLowerCase() as Hash });
-    }
-  }
-  const channels = (await io.listDirectories('channels'))
-    .filter((name) => CHANNEL_DIR_RE.test(name))
-    .map((name) => name.toLowerCase())
-    .sort((a, b) => a.localeCompare(b));
-  for (const channel of channels) {
-    const files = await io.listFiles(`channels/${channel}`);
-    for (const file of files) {
-      const match = file.match(OBJECT_FILE_RE);
-      if (match?.[1]) {
-        refs.push({
-          kind: 'event',
-          channel,
-          hash: match[1].toLowerCase() as Hash,
-        });
-      }
-    }
-  }
-  return refs.sort((a, b) => refKey(a).localeCompare(refKey(b)));
 }
 
 export function createReceptionJournal(io: LogIo): ReceptionApi {
@@ -181,24 +143,6 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
         }
       }
       return { refs, more: false };
-    },
-
-    async repairFromInventory(): Promise<{ appended: number }> {
-      const existing = new Set<string>();
-      for (const line of await readAllLines(io)) {
-        existing.add(refKey(line.ref));
-      }
-      let appended = 0;
-      for (const ref of await inventoryRefs(io)) {
-        const key = refKey(ref);
-        if (existing.has(key)) {
-          continue;
-        }
-        await appendReception(ref);
-        existing.add(key);
-        appended += 1;
-      }
-      return { appended };
     },
   };
 }
