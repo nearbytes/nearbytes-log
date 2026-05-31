@@ -52,6 +52,7 @@ function wrapBlockStore(base: BlockStoreApi, onStored: (hash: Hash) => Promise<v
     },
     retrieve: (hash, options) => base.retrieve(hash, options),
     has: (hash) => base.has(hash),
+    listBlocks: () => base.listBlocks(),
   };
 }
 

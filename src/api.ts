@@ -52,6 +52,8 @@ export interface BlockStoreApi {
   storeAlreadyVerified(hash: Hash, data: EncryptedData, skipIfExists?: boolean): Promise<void>;
   retrieve(hash: Hash, options?: BlockRetrieveOptions): Promise<EncryptedData>;
   has(hash: Hash): Promise<boolean>;
+  /** Stored block hashes present under the content-addressed block namespace. */
+  listBlocks(): Promise<Hash[]>;
 }
 
 /**
