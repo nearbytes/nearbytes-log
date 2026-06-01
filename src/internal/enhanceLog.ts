@@ -2,11 +2,7 @@ import type { Hash, PublicKey } from 'nearbytes-crypto';
 import type { BlockStoreApi, EventLogApi, Log } from '../api.js';
 import type { ChannelPathMapper } from '../api.js';
 import { publicKeyFromHex } from '../integrity.js';
-import {
-  receptionRefForBlock,
-  receptionRefForEvent,
-  createReceptionJournal,
-} from './receptionJournal.js';
+import { receptionRefForEvent, createReceptionJournal } from './receptionJournal.js';
 import { createSyncActivity } from './syncActivity.js';
 import { createBlockStoreApi } from './blockApi.js';
 import { createEventLogApi } from './eventApi.js';
@@ -80,13 +76,15 @@ export function createLogFromIo(io: LogIo, pathMapper: ChannelPathMapper): Log {
     baseEvents,
     async (pk, hash) => {
       await reception.appendReception(receptionRefForEvent(pk, hash));
+      const flush = (reception as { flushLocalHave?: () => void }).flushLocalHave;
+      queueMicrotask(() => flush?.());
     },
     listChannels,
   );
 
-  const blocks = wrapBlockStore(baseBlocks, async (hash) => {
-    await reception.appendReception(receptionRefForBlock(hash));
-  });
+  // Block blobs are named in the event's visible `blockRefs`; a separate reception
+  // row would race ahead of the event and produce a blocks-only urgent `have`.
+  const blocks = wrapBlockStore(baseBlocks, async () => {});
 
   return { events, blocks, reception, sync };
 }

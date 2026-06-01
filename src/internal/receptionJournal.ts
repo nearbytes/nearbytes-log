@@ -103,14 +103,26 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
 
     async listAfter(cursor?: string, limit = 256): Promise<ReceptionListResult> {
       const lines = await readAllLines(io);
-      const startSeq = cursor === undefined ? -1 : Number.parseInt(cursor, 10);
+      const startSeq = cursor === undefined || cursor === '' ? -1 : Number.parseInt(cursor, 10);
+      let startIndex = 0;
+      if (startSeq >= 0 && lines.length > 0) {
+        let lo = 0;
+        let hi = lines.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (lines[mid]!.seq <= startSeq) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+        startIndex = lo;
+      }
       const refs: ReceptionObjectRef[] = [];
       let next: string | undefined;
       let more = false;
-      for (const line of lines) {
-        if (line.seq <= startSeq) {
-          continue;
-        }
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i]!;
         if (refs.length >= limit) {
           more = true;
           next = String(line.seq - 1);
