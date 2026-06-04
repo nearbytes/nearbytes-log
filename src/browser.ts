@@ -2,7 +2,18 @@
  * Browser-safe exports (no Node.js fs/path). Use from Vite/renderer instead of the package root.
  */
 
-export type { Log, EventLogApi, BlockStoreApi, ChannelPathMapper } from './api.js';
+export type {
+  Log,
+  EventLogApi,
+  BlockStoreApi,
+  ChannelPathMapper,
+  EventRouterFilter,
+  EventRouterSink,
+  StoredEventNotification,
+} from './api.js';
+
+// Projection engine (browser-safe surface; SQLite store is Node-only and omitted).
+export * from './projection/index.js';
 export type {
   ReceptionApi,
   SyncActivityApi,

@@ -1,11 +1,13 @@
-import type { Hash, PublicKey } from 'nearbytes-crypto';
-import type { BlockStoreApi, EventLogApi, Log } from '../api.js';
+import type { Hash, PublicKey, SignedEvent } from 'nearbytes-crypto';
+import { bytesToHex } from 'nearbytes-crypto';
+import type { BlockStoreApi, EventLogApi, EventRouterFilter, EventRouterSink, Log } from '../api.js';
 import type { ChannelPathMapper } from '../api.js';
 import { publicKeyFromHex } from '../integrity.js';
 import { receptionRefForEvent, createReceptionJournal } from './receptionJournal.js';
 import { createSyncActivity } from './syncActivity.js';
 import { createBlockStoreApi } from './blockApi.js';
 import { createEventLogApi } from './eventApi.js';
+import { createEventRouter } from '../projection/router.js';
 import type { LogIo } from './io.js';
 
 async function listChannelHex(io: LogIo): Promise<string[]> {
@@ -14,19 +16,21 @@ async function listChannelHex(io: LogIo): Promise<string[]> {
 }
 
 function wrapEventLog(
-  base: Omit<EventLogApi, 'listChannels'>,
-  onStored: (pk: PublicKey, hash: Hash) => Promise<void>,
+  base: Omit<EventLogApi, 'listChannels' | 'subscribe'>,
+  onStored: (pk: PublicKey, hash: Hash, event: SignedEvent) => Promise<void>,
   listChannels: () => Promise<PublicKey[]>,
+  subscribe: (filter: EventRouterFilter, sink: EventRouterSink) => () => void,
 ): EventLogApi {
   return {
     storeEvent: async (publicKey, event) => {
       const hash = await base.storeEvent(publicKey, event);
-      await onStored(publicKey, hash);
+      await onStored(publicKey, hash, event);
       return hash;
     },
     retrieveEvent: (publicKey, eventHash) => base.retrieveEvent(publicKey, eventHash),
     listEvents: (publicKey) => base.listEvents(publicKey),
     listChannels,
+    subscribe,
   };
 }
 
@@ -59,6 +63,7 @@ export function createLogFromIo(io: LogIo, pathMapper: ChannelPathMapper): Log {
   const sync = createSyncActivity(io);
   const baseEvents = createEventLogApi(io, pathMapper);
   const baseBlocks = createBlockStoreApi(io);
+  const router = createEventRouter();
 
   const listChannels = async (): Promise<PublicKey[]> => {
     const hexes = await listChannelHex(io);
@@ -74,12 +79,15 @@ export function createLogFromIo(io: LogIo, pathMapper: ChannelPathMapper): Log {
 
   const events = wrapEventLog(
     baseEvents,
-    async (pk, hash) => {
+    async (pk, hash, event) => {
       await reception.appendReception(receptionRefForEvent(pk, hash));
       const flush = (reception as { flushLocalHave?: () => void }).flushLocalHave;
       queueMicrotask(() => flush?.());
+      // Push the new event to projection subscribers (always-incremental replay).
+      router.publish({ channel: pk, channelHex: bytesToHex(pk).toLowerCase(), eventHash: hash, signedEvent: event });
     },
     listChannels,
+    router.subscribe,
   );
 
   // Block blobs are named in the event's visible `blockRefs`; a separate reception

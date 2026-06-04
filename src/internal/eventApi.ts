@@ -13,7 +13,7 @@ import type { LogIo } from './io.js';
 export function createEventLogApi(
   io: LogIo,
   pathMapper: ChannelPathMapper = defaultPathMapper,
-): EventLogApi {
+): Omit<EventLogApi, 'subscribe'> {
   const storeEvent = async (publicKey: PublicKey, event: SignedEvent): Promise<Hash> => {
     try {
       const envelopeBytes = serializeEventEnvelope(event.envelope);

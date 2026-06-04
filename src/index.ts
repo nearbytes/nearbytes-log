@@ -3,7 +3,15 @@ export type {
   EventLogApi,
   BlockStoreApi,
   ChannelPathMapper,
+  EventRouterFilter,
+  EventRouterSink,
+  StoredEventNotification,
 } from './api.js';
+
+// Projection engine (order-agnostic incremental replay + persistence).
+export * from './projection/index.js';
+// Node-only durable store (not exported from ./browser).
+export { createSqliteMaterializedStore } from './projection/sqliteStore.js';
 
 export type {
   ReceptionApi,

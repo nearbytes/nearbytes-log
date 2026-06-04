@@ -7,6 +7,31 @@ import type { ReceptionApi, SyncActivityApi } from './reception.js';
 export type ChannelPathMapper = (publicKey: PublicKey) => string;
 
 /**
+ * A newly-persisted event pushed to router subscribers. The `signedEvent` is the
+ * stored (possibly inner-encrypted) envelope; payload hydration/decryption is the
+ * subscriber's job (it holds the channel key). See `storage/projection-engine-v1.md` §3.
+ */
+export interface StoredEventNotification {
+  readonly channel: PublicKey;
+  readonly channelHex: string;
+  readonly eventHash: Hash;
+  readonly signedEvent: SignedEvent;
+}
+
+/** Selects which deliveries a subscriber receives. `channel` is lowercase hex. */
+export interface EventRouterFilter {
+  readonly channel?: string;
+  /**
+   * Optional inner-payload protocol hint. Honored only when determinable without
+   * decryption (it usually is not, since payloads are encrypted); subscribers
+   * MUST still ignore irrelevant events in their projector.
+   */
+  readonly protocols?: ReadonlySet<string>;
+}
+
+export type EventRouterSink = (events: readonly StoredEventNotification[]) => void;
+
+/**
  * Append-only event log for a single channel.
  */
 export interface EventLogApi {
@@ -15,6 +40,12 @@ export interface EventLogApi {
   listEvents(publicKey: PublicKey): Promise<Hash[]>;
   /** Channel public keys that have a `channels/<hex>/` directory. */
   listChannels(): Promise<PublicKey[]>;
+  /**
+   * Register a push sink for newly persisted events (local emit or sync
+   * acceptance). Returns an unsubscribe handle. The router is key-agnostic and
+   * never rescans the channel directory. See `storage/projection-engine-v1.md` §3.
+   */
+  subscribe(filter: EventRouterFilter, sink: EventRouterSink): () => void;
 }
 
 /**
