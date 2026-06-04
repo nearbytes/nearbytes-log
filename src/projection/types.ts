@@ -69,6 +69,8 @@ export interface MaterializedStore {
   deleteSnapshots(ns: ProjectionNamespace, ids: readonly string[]): Promise<void>;
   getMeta(ns: ProjectionNamespace, key: string): Promise<string | null>;
   setMeta(ns: ProjectionNamespace, key: string, value: string): Promise<void>;
+  /** Drop all persisted projection state for one channel namespace (cold replay). */
+  dropNamespace(ns: ProjectionNamespace): Promise<void>;
   close?(): void;
 }
 

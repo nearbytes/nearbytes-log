@@ -30,7 +30,11 @@ export function createEventLogApi(
     }
   };
 
-  const retrieveEvent = async (publicKey: PublicKey, eventHash: Hash): Promise<SignedEvent> => {
+  const retrieveEvent = async (
+    publicKey: PublicKey,
+    eventHash: Hash,
+    options?: { readonly verifySignature?: boolean },
+  ): Promise<SignedEvent> => {
     const channelHex = publicKeyToHex(publicKey);
     const path = eventPath(pathMapper, publicKey, eventHash);
     try {
@@ -49,10 +53,15 @@ export function createEventLogApi(
         await io.deleteFile(path).catch(() => undefined);
         throw new StorageError(`Failed to retrieve event: event hash mismatch for ${eventHash}`);
       }
-      const valid = await verifyPU(envelopeBytes, event.signature, publicKey).catch(() => false);
-      if (!valid) {
-        await io.deleteFile(path).catch(() => undefined);
-        throw new StorageError(`Failed to retrieve event: signature verification failed for ${eventHash}`);
+      // Signature re-verification is skippable for replay of an already-accepted
+      // local log (events are signature-verified at reception/emit). The hash
+      // check above still guarantees the bytes match the content-address.
+      if (options?.verifySignature !== false) {
+        const valid = await verifyPU(envelopeBytes, event.signature, publicKey).catch(() => false);
+        if (!valid) {
+          await io.deleteFile(path).catch(() => undefined);
+          throw new StorageError(`Failed to retrieve event: signature verification failed for ${eventHash}`);
+        }
       }
       return event;
     } catch (error) {

@@ -34,9 +34,21 @@ export type EventRouterSink = (events: readonly StoredEventNotification[]) => vo
 /**
  * Append-only event log for a single channel.
  */
+export interface EventRetrieveOptions {
+  /**
+   * When false, skip the ECDSA envelope signature verification on read. The
+   * content-address hash is still recomputed and checked (disk-integrity), and
+   * the envelope public key is still matched. Use only for replay of an
+   * already-accepted local log: every event had its signature verified at
+   * reception (`nearbytes-sync` acceptance) or local emit, so re-verifying on
+   * every projection rebuild is pure cost. Default true.
+   */
+  readonly verifySignature?: boolean;
+}
+
 export interface EventLogApi {
   storeEvent(publicKey: PublicKey, event: SignedEvent): Promise<Hash>;
-  retrieveEvent(publicKey: PublicKey, eventHash: Hash): Promise<SignedEvent>;
+  retrieveEvent(publicKey: PublicKey, eventHash: Hash, options?: EventRetrieveOptions): Promise<SignedEvent>;
   listEvents(publicKey: PublicKey): Promise<Hash[]>;
   /** Channel public keys that have a `channels/<hex>/` directory. */
   listChannels(): Promise<PublicKey[]>;

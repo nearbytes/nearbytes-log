@@ -79,6 +79,16 @@ export function createSqliteMaterializedStore(path: string): MaterializedStore {
   const getMetaStmt = db.prepare(
     `SELECT v FROM meta WHERE projector_id = ? AND channel_hex = ? AND k = ?`,
   );
+  const dropOrder = db.prepare(
+    `DELETE FROM order_index WHERE projector_id = ? AND channel_hex = ?`,
+  );
+  const dropLive = db.prepare(
+    `DELETE FROM live_state WHERE projector_id = ? AND channel_hex = ?`,
+  );
+  const dropSnapshots = db.prepare(
+    `DELETE FROM snapshots WHERE projector_id = ? AND channel_hex = ?`,
+  );
+  const dropMeta = db.prepare(`DELETE FROM meta WHERE projector_id = ? AND channel_hex = ?`);
 
   const id = (ns: ProjectionNamespace): [string, string] => [ns.projectorId, ns.channelHex];
 
@@ -123,6 +133,12 @@ export function createSqliteMaterializedStore(path: string): MaterializedStore {
     },
     async setMeta(ns, k, value) {
       upsertMeta.run(...id(ns), k, value);
+    },
+    async dropNamespace(ns) {
+      dropOrder.run(...id(ns));
+      dropLive.run(...id(ns));
+      dropSnapshots.run(...id(ns));
+      dropMeta.run(...id(ns));
     },
     close() {
       db.close();

@@ -27,7 +27,7 @@ function wrapEventLog(
       await onStored(publicKey, hash, event);
       return hash;
     },
-    retrieveEvent: (publicKey, eventHash) => base.retrieveEvent(publicKey, eventHash),
+    retrieveEvent: (publicKey, eventHash, options) => base.retrieveEvent(publicKey, eventHash, options),
     listEvents: (publicKey) => base.listEvents(publicKey),
     listChannels,
     subscribe,
