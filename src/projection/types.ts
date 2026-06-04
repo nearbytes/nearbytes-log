@@ -79,6 +79,12 @@ export interface Projection<TState> {
   state(): TState;
   /** Push new events (router sink and boot path). Returns the updated state. */
   ingest(entries: readonly EventLogEntry[]): Promise<TState>;
+  /**
+   * Ingest channel events not yet in the order index (cold full materialization
+   * or warm tail), hydrated with bounded concurrency and trusted reads. The
+   * shared replacement for per-service catch-up loops.
+   */
+  catchUp(): Promise<TState>;
   /** Current order-index length (= live position). */
   version(): number;
   /** Whether an event hash is already in the order index (dedup / boot catch-up). */

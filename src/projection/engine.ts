@@ -26,6 +26,27 @@ import type {
   SnapshotMeta,
 } from './types.js';
 
+const HYDRATE_CONCURRENCY = 128;
+
+/** Map with bounded concurrency, preserving input order in the result. */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = next++;
+      if (index >= items.length) return;
+      out[index] = await fn(items[index]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return out;
+}
+
 export interface CreateProjectionOptions {
   readonly now?: () => number;
   readonly snapshotPolicy?: SnapshotPolicy;
@@ -66,9 +87,15 @@ export async function createProjection<TState, TKey extends OrderKey>(
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
+  // Trusted replay: events in the local log were signature-verified at reception
+  // (nearbytes-sync acceptance) or local emit; the content-address hash is still
+  // checked on read. Skipping the per-read ECDSA verify is the dominant cold-
+  // replay win. See storage/projection-engine-v1.md PROJ-7.
   async function hydrateOne(eventHash: Hash): Promise<EventLogEntry | undefined> {
     try {
-      const signed = await log.events.retrieveEvent(keyPair.publicKey, eventHash);
+      const signed = await log.events.retrieveEvent(keyPair.publicKey, eventHash, {
+        verifySignature: false,
+      });
       if (!eventEnvelopePublicKeyMatches(signed, keyPair.publicKey)) return undefined;
       return { eventHash, signedEvent: await hydrateSignedEvent(crypto, keyPair.privateKey, signed) };
     } catch {
@@ -163,6 +190,25 @@ export async function createProjection<TState, TKey extends OrderKey>(
     return next;
   }
 
+  /**
+   * Bring the projection up to date with the channel's on-disk events not yet in
+   * the order index. Cold (empty store) ⇒ full materialization; warm ⇒ only the
+   * unknown tail. Hydration is trusted (no per-event ECDSA re-verify) and runs
+   * with bounded concurrency so large cold builds saturate I/O without
+   * exhausting file handles. This is the single shared implementation used by
+   * every domain service (chat, files); callers MUST NOT reimplement it.
+   */
+  async function catchUp(): Promise<TState> {
+    const listed = await log.events.listEvents(keyPair.publicKey);
+    const unknown = listed.filter((hash) => !knownSet.has(hash));
+    if (unknown.length === 0) return live;
+    const hydrated = await mapWithConcurrency(unknown, HYDRATE_CONCURRENCY, (hash) =>
+      hydrateOne(hash),
+    );
+    const entries = hydrated.filter((entry): entry is EventLogEntry => entry !== undefined);
+    return entries.length > 0 ? ingest(entries) : live;
+  }
+
   // ── live router subscription ────────────────────────────────────────────────
   let unsubscribe = (): void => {};
   if (options.live !== false) {
@@ -188,6 +234,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
   return {
     state: () => live,
     ingest,
+    catchUp,
     version: () => keys.length,
     has: (eventHash) => knownSet.has(eventHash),
     onChange(listener) {
