@@ -79,6 +79,8 @@ export interface Projection<TState> {
   ingest(entries: readonly EventLogEntry[]): Promise<TState>;
   /** Current order-index length (= live position). */
   version(): number;
+  /** Whether an event hash is already in the order index (dedup / boot catch-up). */
+  has(eventHash: string): boolean;
   /** Subscribe to materialized-state changes. */
   onChange(listener: (state: TState) => void): () => void;
   /** Per-channel KV (e.g. chat last-seen / reply target). */

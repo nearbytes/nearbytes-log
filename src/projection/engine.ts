@@ -49,11 +49,13 @@ export async function createProjection<TState, TKey extends OrderKey>(
   let keys: TKey[] = [];
   let live: TState = projector.initial();
   let snapshotMetas: SnapshotMeta[] = [];
+  const knownSet = new Set<string>();
   const listeners = new Set<(state: TState) => void>();
 
   // ── load persisted state ────────────────────────────────────────────────
   const orderJson = await store.loadOrderIndex(ns);
   if (orderJson !== null) keys = JSON.parse(orderJson) as TKey[];
+  for (const key of keys) knownSet.add(key.hash);
   snapshotMetas = await store.listSnapshots(ns);
   const persistedLive = await store.loadLiveState(ns);
   if (persistedLive !== null && persistedLive.position === keys.length) {
@@ -132,8 +134,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
   let queue: Promise<unknown> = Promise.resolve();
 
   async function ingestNow(entries: readonly EventLogEntry[]): Promise<TState> {
-    const known = new Set(keys.map((k) => k.hash));
-    const fresh = entries.filter((e) => !known.has(e.eventHash));
+    const fresh = entries.filter((e) => !knownSet.has(e.eventHash));
     if (fresh.length === 0) return live;
 
     const batch = new Map<string, EventLogEntry>(fresh.map((e) => [e.eventHash, e]));
@@ -141,6 +142,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
     const prevLen = keys.length;
     const { keys: merged, insertAt } = projector.reorder(keys, newKeys);
     keys = merged;
+    for (const k of newKeys) knownSet.add(k.hash);
 
     if (insertAt >= prevLen) {
       const tail = await entriesForRange(prevLen, keys.length, batch);
@@ -187,6 +189,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
     state: () => live,
     ingest,
     version: () => keys.length,
+    has: (eventHash) => knownSet.has(eventHash),
     onChange(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
