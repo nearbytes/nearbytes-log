@@ -121,9 +121,31 @@ export async function createProjection<TState, TKey extends OrderKey>(
         continue;
       }
       const hydrated = await hydrateOne(hash as Hash);
-      if (hydrated !== undefined) out.push(hydrated);
+      if (hydrated === undefined) {
+        throw new Error(`Projection key ${hash} is not readable from the event log`);
+      }
+      out.push(hydrated);
     }
     return out;
+  }
+
+  async function rebuildColdFromLog(): Promise<TState> {
+    const listed = await log.events.listEvents(keyPair.publicKey);
+    const hydrated = await mapWithConcurrency(listed, HYDRATE_CONCURRENCY, (hash) =>
+      hydrateOne(hash),
+    );
+    const entries = hydrated.filter((entry): entry is EventLogEntry => entry !== undefined);
+    const nextKeys = projector.reorder([], entries.map((entry) => projector.key(entry))).keys;
+    const batch = new Map<string, EventLogEntry>(entries.map((entry) => [entry.eventHash, entry]));
+
+    keys = nextKeys;
+    knownSet.clear();
+    for (const key of keys) knownSet.add(key.hash);
+    snapshotMetas = [];
+    await store.dropNamespace(ns);
+
+    const ordered = await entriesForRange(0, keys.length, batch);
+    return ordered.length > 0 ? await projector.reduce(projector.initial(), ordered) : projector.initial();
   }
 
   async function rebuildFrom(target: number): Promise<TState> {
@@ -137,8 +159,16 @@ export async function createProjection<TState, TKey extends OrderKey>(
         from = snap.position;
       }
     }
-    const tail = await entriesForRange(from, target, new Map());
-    return tail.length > 0 ? await projector.reduce(base, tail) : base;
+    try {
+      const tail = await entriesForRange(from, target, new Map());
+      return tail.length > 0 ? await projector.reduce(base, tail) : base;
+    } catch {
+      // Persisted projection state is a rebuildable cache. If its order index
+      // references events this process cannot hydrate, never claim the target
+      // position with a partial fold; discard the namespace and rebuild from the
+      // canonical event log instead.
+      return rebuildColdFromLog();
+    }
   }
 
   // Live-state persistence is coalesced: writing the full serialized state on
