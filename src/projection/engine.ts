@@ -148,7 +148,10 @@ export async function createProjection<TState, TKey extends OrderKey>(
     return ordered.length > 0 ? await projector.reduce(projector.initial(), ordered) : projector.initial();
   }
 
-  async function rebuildFrom(target: number): Promise<TState> {
+  async function rebuildFrom(
+    target: number,
+    batch: Map<string, EventLogEntry> = new Map(),
+  ): Promise<TState> {
     const snap = nearestSnapshot(snapshotMetas, target);
     let base = projector.initial();
     let from = 0;
@@ -160,7 +163,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
       }
     }
     try {
-      const tail = await entriesForRange(from, target, new Map());
+      const tail = await entriesForRange(from, target, batch);
       return tail.length > 0 ? await projector.reduce(base, tail) : base;
     } catch {
       // Persisted projection state is a rebuildable cache. If its order index
@@ -240,7 +243,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
       const tail = await entriesForRange(prevLen, keys.length, batch);
       if (tail.length > 0) live = await projector.reduce(live, tail);
     } else {
-      live = await rebuildFrom(keys.length);
+      live = await rebuildFrom(keys.length, batch);
     }
 
     schedulePersist();
