@@ -27,6 +27,8 @@ import type {
 } from './types.js';
 
 const HYDRATE_CONCURRENCY = 128;
+/** Coalesce live-state writes within this window (one flush per burst). */
+const PERSIST_DEBOUNCE_MS = 25;
 
 /** Map with bounded concurrency, preserving input order in the result. */
 async function mapWithConcurrency<T, R>(
@@ -138,9 +140,41 @@ export async function createProjection<TState, TKey extends OrderKey>(
     return tail.length > 0 ? await projector.reduce(base, tail) : base;
   }
 
-  async function persist(): Promise<void> {
-    await store.saveOrderIndex(ns, JSON.stringify(keys));
-    await store.saveLiveState(ns, projector.serializeState(live), keys.length);
+  // Live-state persistence is coalesced: writing the full serialized state on
+  // every single-event ingest is O(n) per event → O(n²) over a live sync burst.
+  // We debounce instead. Durability is not weakened: snapshots are written on the
+  // ladder, and on restart `catchUp()` folds any events newer than the persisted
+  // live state straight from the log. The order index and live state are always
+  // flushed together so their positions stay consistent.
+  let persistDirty = false;
+  let stopped = false;
+  let persistTimer: ReturnType<typeof setTimeout> | undefined;
+  async function flushPersist(): Promise<void> {
+    if (persistTimer !== undefined) {
+      clearTimeout(persistTimer);
+      persistTimer = undefined;
+    }
+    if (!persistDirty) return;
+    persistDirty = false;
+    // Best-effort: persisted state is a rebuildable cache (catchUp re-folds from
+    // the log on the next open), so a transient store error or a teardown race
+    // must never crash the projection.
+    try {
+      await store.saveOrderIndex(ns, JSON.stringify(keys));
+      await store.saveLiveState(ns, projector.serializeState(live), keys.length);
+    } catch {
+      /* rebuilt from the log on next catchUp */
+    }
+  }
+  function schedulePersist(): void {
+    if (stopped) return;
+    persistDirty = true;
+    if (persistTimer !== undefined) return;
+    persistTimer = setTimeout(() => {
+      persistTimer = undefined;
+      void flushPersist();
+    }, PERSIST_DEBOUNCE_MS);
+    if (typeof persistTimer.unref === 'function') persistTimer.unref();
   }
 
   async function maybeSnapshot(): Promise<void> {
@@ -178,7 +212,7 @@ export async function createProjection<TState, TKey extends OrderKey>(
       live = await rebuildFrom(keys.length);
     }
 
-    await persist();
+    schedulePersist();
     await maybeSnapshot();
     for (const listener of listeners) listener(live);
     return live;
@@ -245,9 +279,17 @@ export async function createProjection<TState, TKey extends OrderKey>(
       get: (key) => store.getMeta(ns, key),
       set: (key, value) => store.setMeta(ns, key, value),
     },
-    stop() {
+    async stop() {
       unsubscribe();
       listeners.clear();
+      // Flush any pending debounced write so a following drop/restart is durable,
+      // then mark stopped so no late timer can write after the store is closed.
+      await flushPersist();
+      stopped = true;
+      if (persistTimer !== undefined) {
+        clearTimeout(persistTimer);
+        persistTimer = undefined;
+      }
     },
   };
 }

@@ -92,23 +92,33 @@ export function createSqliteMaterializedStore(path: string): MaterializedStore {
 
   const id = (ns: ProjectionNamespace): [string, string] => [ns.projectorId, ns.channelHex];
 
+  // Once closed the database is gone; derived materialized state is rebuildable
+  // from the log, so post-close calls (e.g. a debounced flush timer firing during
+  // teardown) are safe no-ops rather than `ERR_INVALID_STATE` crashes.
+  let closed = false;
+
   return {
     async loadOrderIndex(ns) {
+      if (closed) return null;
       const row = getOrder.get(...id(ns));
       return row === undefined ? null : (row.json as string);
     },
     async saveOrderIndex(ns, json) {
+      if (closed) return;
       upsertOrder.run(...id(ns), json);
     },
     async loadLiveState(ns) {
+      if (closed) return null;
       const row = getLive.get(...id(ns));
       if (row === undefined) return null;
       return { bytes: toBytes(row.bytes), position: Number(row.position) };
     },
     async saveLiveState(ns, bytes, position) {
+      if (closed) return;
       upsertLive.run(...id(ns), bytes, position);
     },
     async listSnapshots(ns) {
+      if (closed) return [];
       return listSnap.all(...id(ns)).map(
         (row): SnapshotMeta => ({
           id: row.id as string,
@@ -118,29 +128,37 @@ export function createSqliteMaterializedStore(path: string): MaterializedStore {
       );
     },
     async loadSnapshot(ns, snapId) {
+      if (closed) return null;
       const row = getSnap.get(...id(ns), snapId);
       return row === undefined ? null : toBytes(row.bytes);
     },
     async putSnapshot(ns, meta, bytes) {
+      if (closed) return;
       putSnap.run(...id(ns), meta.id, meta.position, meta.createdAt, bytes);
     },
     async deleteSnapshots(ns, ids) {
+      if (closed) return;
       for (const snapId of ids) delSnap.run(...id(ns), snapId);
     },
     async getMeta(ns, k) {
+      if (closed) return null;
       const row = getMetaStmt.get(...id(ns), k);
       return row === undefined ? null : (row.v as string);
     },
     async setMeta(ns, k, value) {
+      if (closed) return;
       upsertMeta.run(...id(ns), k, value);
     },
     async dropNamespace(ns) {
+      if (closed) return;
       dropOrder.run(...id(ns));
       dropLive.run(...id(ns));
       dropSnapshots.run(...id(ns));
       dropMeta.run(...id(ns));
     },
     close() {
+      if (closed) return;
+      closed = true;
       db.close();
     },
   };

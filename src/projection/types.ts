@@ -96,6 +96,6 @@ export interface Projection<TState> {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;
   };
-  /** Detach the log-router subscription. */
-  stop(): void;
+  /** Detach the log-router subscription and flush any pending persistence. */
+  stop(): Promise<void>;
 }
