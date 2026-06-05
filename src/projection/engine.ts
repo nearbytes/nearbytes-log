@@ -89,14 +89,15 @@ export async function createProjection<TState, TKey extends OrderKey>(
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
-  // Trusted replay: events in the local log were signature-verified at reception
-  // (nearbytes-sync acceptance) or local emit; the content-address hash is still
-  // checked on read. Skipping the per-read ECDSA verify is the dominant cold-
-  // replay win. See storage/projection-engine-v1.md PROJ-7.
+  // Fully trusted replay: events in the local log were hash-verified and
+  // signature-verified at reception (nearbytes-sync) or local emit; re-running
+  // two SHA-256 passes + ECDSA verify per event on every catchUp is pure cost.
+  // See storage/projection-engine-v1.md PROJ-7 and log-api-v1 §2.2.
   async function hydrateOne(eventHash: Hash): Promise<EventLogEntry | undefined> {
     try {
       const signed = await log.events.retrieveEvent(keyPair.publicKey, eventHash, {
         verifySignature: false,
+        verifyIntegrity: false,
       });
       if (!eventEnvelopePublicKeyMatches(signed, keyPair.publicKey)) return undefined;
       return { eventHash, signedEvent: await hydrateSignedEvent(crypto, keyPair.privateKey, signed) };

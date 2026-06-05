@@ -33,30 +33,32 @@ export function createEventLogApi(
   const retrieveEvent = async (
     publicKey: PublicKey,
     eventHash: Hash,
-    options?: { readonly verifySignature?: boolean },
+    options?: { readonly verifySignature?: boolean; readonly verifyIntegrity?: boolean },
   ): Promise<SignedEvent> => {
     const channelHex = publicKeyToHex(publicKey);
     const path = eventPath(pathMapper, publicKey, eventHash);
     try {
       const eventBytes = await io.readFile(path);
-      const validation = await validateEventBytes(channelHex, eventHash, eventBytes);
-      if (!validation.ok) {
-        await io.deleteFile(path).catch(() => undefined);
-        throw new StorageError(`Failed to retrieve event: ${validation.detail ?? 'event validation failed'}`);
-      }
-
       const serialized = JSON.parse(new TextDecoder().decode(eventBytes)) as SerializedEvent;
       const event = deserializeEvent(serialized);
       const envelopeBytes = serializeEventEnvelope(event.envelope);
-      const payloadHash = await computeHash(envelopeBytes);
-      if (payloadHash !== eventHash) {
-        await io.deleteFile(path).catch(() => undefined);
-        throw new StorageError(`Failed to retrieve event: event hash mismatch for ${eventHash}`);
+
+      if (options?.verifyIntegrity !== false) {
+        // Full integrity: validate bytes format + hash, then re-confirm post-parse.
+        const validation = await validateEventBytes(channelHex, eventHash, eventBytes);
+        if (!validation.ok) {
+          await io.deleteFile(path).catch(() => undefined);
+          throw new StorageError(`Failed to retrieve event: ${validation.detail ?? 'event validation failed'}`);
+        }
+        const payloadHash = await computeHash(envelopeBytes);
+        if (payloadHash !== eventHash) {
+          await io.deleteFile(path).catch(() => undefined);
+          throw new StorageError(`Failed to retrieve event: event hash mismatch for ${eventHash}`);
+        }
       }
       // Signature re-verification is skippable for replay of an already-accepted
-      // local log (events are signature-verified at reception/emit). The hash
-      // check above still guarantees the bytes match the content-address.
-      if (options?.verifySignature !== false) {
+      // local log (events are signature-verified at reception/emit).
+      if (options?.verifySignature !== false && options?.verifyIntegrity !== false) {
         const valid = await verifyPU(envelopeBytes, event.signature, publicKey).catch(() => false);
         if (!valid) {
           await io.deleteFile(path).catch(() => undefined);

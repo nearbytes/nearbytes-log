@@ -36,14 +36,20 @@ export type EventRouterSink = (events: readonly StoredEventNotification[]) => vo
  */
 export interface EventRetrieveOptions {
   /**
-   * When false, skip the ECDSA envelope signature verification on read. The
-   * content-address hash is still recomputed and checked (disk-integrity), and
-   * the envelope public key is still matched. Use only for replay of an
-   * already-accepted local log: every event had its signature verified at
-   * reception (`nearbytes-sync` acceptance) or local emit, so re-verifying on
-   * every projection rebuild is pure cost. Default true.
+   * When false, skip the ECDSA envelope signature verification on read. Default true.
+   * Safe for replay of the already-accepted local log (every event was verified at
+   * reception/emit). The content-address hash check still runs unless
+   * `verifyIntegrity` is also false.
    */
   readonly verifySignature?: boolean;
+  /**
+   * When false, skip both the `validateEventBytes` hash and the post-parse
+   * `payloadHash === eventHash` check. Use only for trusted replay of an
+   * already-accepted local log on a process-private store (e.g. projection
+   * `catchUp`). Default true.
+   * Mirrors `BlockStoreApi.retrieve({ verifyIntegrity })`.
+   */
+  readonly verifyIntegrity?: boolean;
 }
 
 export interface EventLogApi {
