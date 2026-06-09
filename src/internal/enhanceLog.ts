@@ -22,12 +22,13 @@ function wrapEventLog(
   subscribe: (filter: EventRouterFilter, sink: EventRouterSink) => () => void,
 ): EventLogApi {
   return {
-    storeEvent: async (publicKey, event) => {
-      const hash = await base.storeEvent(publicKey, event);
+    storeEvent: async (publicKey, event, knownHash) => {
+      const hash = await base.storeEvent(publicKey, event, knownHash);
       await onStored(publicKey, hash, event);
       return hash;
     },
     retrieveEvent: (publicKey, eventHash, options) => base.retrieveEvent(publicKey, eventHash, options),
+    hasEvent: (publicKey, eventHash) => base.hasEvent(publicKey, eventHash),
     listEvents: (publicKey) => base.listEvents(publicKey),
     listChannels,
     subscribe,

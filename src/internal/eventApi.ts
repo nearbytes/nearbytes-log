@@ -14,10 +14,13 @@ export function createEventLogApi(
   io: LogIo,
   pathMapper: ChannelPathMapper = defaultPathMapper,
 ): Omit<EventLogApi, 'subscribe'> {
-  const storeEvent = async (publicKey: PublicKey, event: SignedEvent): Promise<Hash> => {
+  const storeEvent = async (
+    publicKey: PublicKey,
+    event: SignedEvent,
+    knownHash?: Hash,
+  ): Promise<Hash> => {
     try {
-      const envelopeBytes = serializeEventEnvelope(event.envelope);
-      const eventHash = await computeHash(envelopeBytes);
+      const eventHash = knownHash ?? await computeHash(serializeEventEnvelope(event.envelope));
       const serialized = serializeEvent(event);
       const eventBytes = new TextEncoder().encode(JSON.stringify(serialized));
       await io.writeFile(eventPath(pathMapper, publicKey, eventHash), eventBytes);
@@ -77,6 +80,9 @@ export function createEventLogApi(
     }
   };
 
+  const hasEvent = async (publicKey: PublicKey, eventHash: Hash): Promise<boolean> =>
+    io.exists(eventPath(pathMapper, publicKey, eventHash));
+
   const listEvents = async (publicKey: PublicKey): Promise<Hash[]> => {
     try {
       const files = await io.listFiles(pathMapper(publicKey));
@@ -103,5 +109,5 @@ export function createEventLogApi(
     return keys;
   };
 
-  return { storeEvent, retrieveEvent, listEvents, listChannels };
+  return { storeEvent, retrieveEvent, hasEvent, listEvents, listChannels };
 }

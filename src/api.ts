@@ -53,8 +53,10 @@ export interface EventRetrieveOptions {
 }
 
 export interface EventLogApi {
-  storeEvent(publicKey: PublicKey, event: SignedEvent): Promise<Hash>;
+  storeEvent(publicKey: PublicKey, event: SignedEvent, knownHash?: Hash): Promise<Hash>;
   retrieveEvent(publicKey: PublicKey, eventHash: Hash, options?: EventRetrieveOptions): Promise<SignedEvent>;
+  /** O(1) presence check — prefer over `listEvents` on sync hot paths. */
+  hasEvent(publicKey: PublicKey, eventHash: Hash): Promise<boolean>;
   listEvents(publicKey: PublicKey): Promise<Hash[]>;
   /** Channel public keys that have a `channels/<hex>/` directory. */
   listChannels(): Promise<PublicKey[]>;

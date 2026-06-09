@@ -76,11 +76,19 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
    * order matches the seq order.
    */
   let nextSeq: number | null = null;
+  let memoryLines: ReceptionLine[] | null = null;
   let appendChain: Promise<string> = Promise.resolve('0');
+
+  const ensureLinesLoaded = async (): Promise<ReceptionLine[]> => {
+    if (memoryLines === null) {
+      memoryLines = await readAllLines(io);
+    }
+    return memoryLines;
+  };
 
   const ensureSeqLoaded = async (): Promise<number> => {
     if (nextSeq !== null) return nextSeq;
-    const lines = await readAllLines(io);
+    const lines = await ensureLinesLoaded();
     nextSeq = lines.length > 0 ? lines[lines.length - 1]!.seq + 1 : 0;
     return nextSeq;
   };
@@ -89,7 +97,10 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
     const next = appendChain.then(async () => {
       const seq = await ensureSeqLoaded();
       nextSeq = seq + 1;
-      return appendLine(io, seq, ref);
+      await appendLine(io, seq, ref);
+      const lines = await ensureLinesLoaded();
+      lines.push({ seq, ref });
+      return String(seq);
     });
     appendChain = next.catch((err) => {
       console.error('[nearbytes-log:reception] append failed:', err);
@@ -102,7 +113,7 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
     appendReception,
 
     async listAfter(cursor?: string, limit = 256): Promise<ReceptionListResult> {
-      const lines = await readAllLines(io);
+      const lines = await ensureLinesLoaded();
       const startSeq = cursor === undefined || cursor === '' ? -1 : Number.parseInt(cursor, 10);
       let startIndex = 0;
       if (startSeq >= 0 && lines.length > 0) {
@@ -140,7 +151,7 @@ export function createReceptionJournal(io: LogIo): ReceptionApi {
       limit = 256,
     ): Promise<ReceptionListResult> {
       const known = headSet(heads);
-      const lines = await readAllLines(io);
+      const lines = await ensureLinesLoaded();
       const refs: ReceptionObjectRef[] = [];
       for (const line of lines) {
         const { ref } = line;

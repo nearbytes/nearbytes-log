@@ -107,8 +107,22 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
+  const fastWrite = process.env.NEARBYTES_LOG_FAST_WRITE === '1';
+
   const writeFile = async (path: string, data: Uint8Array): Promise<void> => {
     const fullPath = join(basePath, path);
+    if (fastWrite) {
+      try {
+        await fs.mkdir(dirname(fullPath), { recursive: true });
+        await fs.writeFile(fullPath, data);
+        return;
+      } catch (error) {
+        throw new StorageError(
+          `Failed to write file ${path}: ${error instanceof Error ? error.message : 'unknown error'}`,
+          error instanceof Error ? error : undefined,
+        );
+      }
+    }
     const tempPath = `${fullPath}.${randomBytes(8).toString('hex')}.tmp`;
     try {
       await fs.mkdir(dirname(fullPath), { recursive: true });
