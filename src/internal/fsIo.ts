@@ -66,6 +66,47 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
+  const readFileFrom = async (path: string, offset: number): Promise<Uint8Array> => {
+    const fullPath = join(basePath, path);
+    let handle;
+    try {
+      handle = await fs.open(fullPath, 'r');
+      const stat = await handle.stat();
+      if (offset >= stat.size) {
+        return new Uint8Array(0);
+      }
+      const len = stat.size - offset;
+      const buf = Buffer.alloc(len);
+      const { bytesRead } = await handle.read(buf, 0, len, offset);
+      return new Uint8Array(buf.subarray(0, bytesRead));
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return new Uint8Array(0);
+      }
+      throw new StorageError(
+        `Failed to read file ${path} from ${offset}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        error instanceof Error ? error : undefined,
+      );
+    } finally {
+      await handle?.close().catch(() => undefined);
+    }
+  };
+
+  const fileSize = async (path: string): Promise<number> => {
+    try {
+      const stat = await fs.stat(join(basePath, path));
+      return stat.size;
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        return 0;
+      }
+      throw new StorageError(
+        `Failed to stat file ${path}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        error instanceof Error ? error : undefined,
+      );
+    }
+  };
+
   const writeFile = async (path: string, data: Uint8Array): Promise<void> => {
     const fullPath = join(basePath, path);
     const tempPath = `${fullPath}.${randomBytes(8).toString('hex')}.tmp`;
@@ -182,5 +223,16 @@ export function createFsIo(basePath: string): LogIo {
     }
   };
 
-  return { readFile, writeFile, appendFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
+  return {
+    readFile,
+    readFileFrom,
+    fileSize,
+    writeFile,
+    appendFile,
+    listFiles,
+    listDirectories,
+    createDirectory,
+    exists,
+    deleteFile,
+  };
 }

@@ -28,4 +28,6 @@ export interface ReceptionApi {
 export interface SyncActivityApi {
   appendMarker(line: string): Promise<void>;
   readMarkers(): Promise<string[]>;
+  /** Incremental tail read for bench polling — O(new bytes) not O(file). */
+  readMarkersFrom(offset: number): Promise<{ lines: string[]; size: number }>;
 }

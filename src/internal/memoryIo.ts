@@ -19,6 +19,19 @@ export function createMemoryIo(store: MemoryStore = createMemoryStore()): LogIo 
     return data;
   };
 
+  const readFileFrom = async (path: string, offset: number): Promise<Uint8Array> => {
+    const data = store.get(path);
+    if (!data || offset >= data.length) {
+      return new Uint8Array(0);
+    }
+    return data.subarray(offset);
+  };
+
+  const fileSize = async (path: string): Promise<number> => {
+    const data = store.get(path);
+    return data?.length ?? 0;
+  };
+
   const writeFile = async (path: string, data: Uint8Array): Promise<void> => {
     store.put(path, data);
   };
@@ -90,5 +103,16 @@ export function createMemoryIo(store: MemoryStore = createMemoryStore()): LogIo 
     store.delete(path);
   };
 
-  return { readFile, writeFile, appendFile, listFiles, listDirectories, createDirectory, exists, deleteFile };
+  return {
+    readFile,
+    readFileFrom,
+    fileSize,
+    writeFile,
+    appendFile,
+    listFiles,
+    listDirectories,
+    createDirectory,
+    exists,
+    deleteFile,
+  };
 }

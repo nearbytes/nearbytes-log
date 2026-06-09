@@ -3,6 +3,10 @@
  */
 export interface LogIo {
   readFile(path: string): Promise<Uint8Array>;
+  /** Bytes from `offset` through end-of-file. Returns empty when `offset` is at or past EOF. */
+  readFileFrom(path: string, offset: number): Promise<Uint8Array>;
+  /** File length in bytes; `0` when the path does not exist. */
+  fileSize(path: string): Promise<number>;
   writeFile(path: string, data: Uint8Array): Promise<void>;
   /**
    * Append-only write. MUST be implemented as O(1) in the existing file size
