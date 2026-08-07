@@ -30,7 +30,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "nearbytes-crypto": "github:nearbytes/nearbytes-crypto"
+    "nearbytes-crypto": "https://github.com/nearbytes/nearbytes-crypto.git#commit=9b2c1936589d2d8b049f0ca39e76513eba4ded9a"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
